@@ -37,8 +37,7 @@ use strict;
 
 require Exporter;
 
-our $VERSION = '0.10';
-
+our $VERSION = '0.11';
 
 1;
 __END__

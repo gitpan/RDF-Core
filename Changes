@@ -2,7 +2,7 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
-Vesion 0.10
+Vesion 0.1
 March 27, 2002 
 ----------------
 	- countStmts now works with DBMS storage (bug 768)
