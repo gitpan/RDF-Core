@@ -1,0 +1,6 @@
+Revision history for Perl extension RDF::Core.
+
+0.01  Wed Oct  3 11:23:43 2001
+	- original version; created by h2xs 1.20 with options
+		-A -X -f -n RDF::Core
+
