@@ -38,10 +38,6 @@ use strict;
 
 use Carp;
 
-require Exporter;
-require RDF::Core::Statement;
-
-
 sub new {
     my ($pkg,%options) = @_;
     $pkg = ref $pkg || $pkg;
@@ -293,7 +289,7 @@ RDF::Core::Serializer - produce XML code for RDF model
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Serializer;
+  require RDF::Core::Serializer;
 
   my %options = (getSubjects => \&getSubjectsHandler,
                  getNamespaces => \&getNamespacesHandler,

@@ -64,11 +64,6 @@ __END__
 
 RDF::Core::Storage - An abstract ancestor of storage implementations
 
-=head1 SYNOPSIS
-
-  use RDF::Core::Storage;
-
-
 =head1 DESCRIPTION
 
 Storage is the place where statements reside. It can add, remove, count and get statements and ask about their existence.

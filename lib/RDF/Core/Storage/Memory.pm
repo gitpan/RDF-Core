@@ -36,12 +36,11 @@ package RDF::Core::Storage::Memory;
 use strict;
 require Exporter;
 
-our $VERSION = '0.02';
 our @ISA = qw(RDF::Core::Storage);
 
 use Carp;
-use RDF::Core::Enumerator::Memory;
-
+require RDF::Core::Storage;
+require RDF::Core::Enumerator::Memory;
 sub new {
     my ($pkg) = @_;
     $pkg = ref $pkg || $pkg;
@@ -222,7 +221,7 @@ RDF::Core::Storage::Memory - An in-memory implementation of RDF::Core::Storage
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Storage::Memory;
+  require RDF::Core::Storage::Memory;
 
   my $storage = new RDF::Core::Storage::Memory;
   my $model = new RDF::Core::Model (Storage => $storage);

@@ -40,7 +40,7 @@ require Exporter;
 our @ISA = qw(RDF::Core::Node);
 
 use Carp;
-use RDF::Core::Node;
+require RDF::Core::Node;
 
 
 sub new {
@@ -68,7 +68,7 @@ RDF::Core::Literal - a literal value for RDF statement
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Literal;
+  require RDF::Core::Literal;
   my $literal=new RDF::Core::Literal("Jim Brown");
   print $literal->getValue()."\n";
 

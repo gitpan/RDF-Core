@@ -1,7 +1,7 @@
 <HTML>
 <HEAD>
 <TITLE>RDF::Core::Model - RDF model</TITLE>
-<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
 </HEAD>
 
 <BODY>
@@ -32,10 +32,6 @@
 <P>
 <HR>
 <H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<PRE>
-  use RDF::Core::Model;
-  use RDF::Core::Storage::Memory;
-  use RDF::Core::Statement;</PRE>
 <PRE>
   my $storage = new RDF::Core::Storage::Memory;
   my $model = new RDF::Core::Model (Storage =&gt; $storage);
@@ -88,7 +84,13 @@ Retrieve matching statements. Returns RDF::Core::Enumerator object.
 <P></P>
 <LI><STRONG><A NAME="item_getObjects">getObjects($subject, $predicate)</A></STRONG><BR>
 
-Return a reference to an array keeping all object, that are values of specified $predicate for given $subject.
+Return a reference to an array keeping all objects, that are values of
+specified $predicate for given $subject.
+<P></P>
+<LI><STRONG><A NAME="item_getContainerObjects"><CODE>getContainerObjects($container)</CODE></A></STRONG><BR>
+
+Return a reference to an array keeping all objects, that are members
+of the $container. Objects are sorted.
 <P></P></UL>
 <P>
 <HR>

@@ -43,35 +43,6 @@ use RDF::Core::Constants qw (:xml :rdf);
 
 ########################################
 # constants
-
-# XML
-# use constant XML_NS  => 'http://www.w3.org/XML/1998/namespace';
-# use constant XMLA_LANG => XML_NS . 'lang';
-# use constant XMLA_BASE => XML_NS . 'base';
-
-# RDF
-
-#  use constant RDF_NS => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
-#  use constant RDF_RDF         => RDF_NS . 'RDF';
-#  use constant RDF_DESCRIPTION => RDF_NS . 'Description';
-#  use constant RDF_BAG         => RDF_NS . 'Bag';
-#  use constant RDF_ALT         => RDF_NS . 'Alt';
-#  use constant RDF_SEQ         => RDF_NS . 'Seq';
-#  use constant RDF_LI          => RDF_NS . 'li';
-#  use constant RDF_TYPE        => RDF_NS . 'type';
-#  use constant RDF_OBJECT      => RDF_NS . 'object';
-#  use constant RDF_SUBJECT     => RDF_NS . 'subject';
-#  use constant RDF_PREDICATE   => RDF_NS . 'predicate';
-#  use constant RDF_STATEMENT   => RDF_NS . 'Statement';
-
-#  use constant RDFA_ABOUT      => RDF_NS . 'about';
-#  use constant RDFA_ABOUTEACH  => RDF_NS . 'aboutEach';
-#  use constant RDFA_ID         => RDF_NS . 'ID';
-#  use constant RDFA_BAGID      => RDF_NS . 'bagID';
-#  use constant RDFA_RESOURCE   => RDF_NS . 'resource';
-#  use constant RDFA_PARSETYPE  => RDF_NS . 'parseType';
-#  use constant RDFA_TYPE       => RDF_NS . 'type';
-
 use constant PARSE_LITERAL   => "Literal";
 use constant PARSE_RESOURCE  => "Resource";
 
@@ -985,7 +956,7 @@ A module for parsing XML documents containing RDF data. It's based on XML::Parse
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Parser;
+  require RDF::Core::Parser;
 
   my %options = (Assert => \&handleAssert,
                  BaseURI => "http://www.foo.com/",

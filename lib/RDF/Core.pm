@@ -37,7 +37,7 @@ use strict;
 
 require Exporter;
 
-our $VERSION = '0.16';
+our $VERSION = '0.20';
 
 1;
 __END__
@@ -46,9 +46,6 @@ __END__
 
 RDF::Core - An object oriented Perl modules for handling tasks related to RDF.
 
-=head1 SYNOPSIS
-
-  use RDF::Core;
 
 =head1 DESCRIPTION
 

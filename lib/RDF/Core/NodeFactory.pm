@@ -36,8 +36,8 @@ package RDF::Core::NodeFactory;
 use strict;
 require Exporter;
 
-use RDF::Core::Resource;
-use RDF::Core::Literal;
+require RDF::Core::Resource;
+require RDF::Core::Literal;
 use Carp;
 use URI;
 
@@ -116,7 +116,7 @@ RDF::Core::NodeFactory - produces literals and resources, generates labels for a
 
 =head1 SYNOPSIS
 
-  use RDF::Core::NodeFactory;
+  require RDF::Core::NodeFactory;
   my $factory = new RDF::Core::NodeFactory(BaseURI=>'http://www.foo.org/');
   my $resource = $factory->newResource('http://www.foo.org/pages');
 

@@ -1,7 +1,7 @@
 <HTML>
 <HEAD>
 <TITLE>RDF::Core::Model::Serializer - interface between model and RDF::Core::Serializer</TITLE>
-<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
 </HEAD>
 
 <BODY>
@@ -34,13 +34,13 @@
 <HR>
 <H1><A NAME="synopsis">SYNOPSIS</A></H1>
 <PRE>
-  use RDF::Core::Model::Serializer;</PRE>
+  require RDF::Core::Model::Serializer;</PRE>
 <PRE>
   my $xml = '';
   my $serializer = new RDF::Core::Model::Serializer(Model=&gt;$model,
                                                     Output=&gt;\$xml,
                                                     BaseURI =&gt; 'URI://BASE/',
-                                                    InlineURI =&gt; 'URI://INLINE/URI/',
+                                                    InlineURI =&gt; '_:a',
                                                    );
   $serializer-&gt;serialize;
   print &quot;$xml\n&quot;;</PRE>

@@ -37,8 +37,7 @@ use strict;
 require Exporter;
 
 use Carp;
-use RDF::Core::Serializer;
-use RDF::Core::Statement;
+require RDF::Core::Serializer;
 
 use constant RDF_NS => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
 
@@ -147,13 +146,13 @@ __END__
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Model::Serializer;
+  require RDF::Core::Model::Serializer;
 
   my $xml = '';
   my $serializer = new RDF::Core::Model::Serializer(Model=>$model,
                                                     Output=>\$xml,
                                                     BaseURI => 'URI://BASE/',
-                                                    InlineURI => 'URI://INLINE/URI/',
+                                                    InlineURI => '_:a',
                                                    );
   $serializer->serialize;
   print "$xml\n";

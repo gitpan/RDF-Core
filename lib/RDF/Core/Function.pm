@@ -36,12 +36,11 @@ package RDF::Core::Function;
 use strict;
 require Exporter;
 
-use RDF::Core::Query;
+#require RDF::Core::Query;
 use Carp;
 
+use RDF::Core::Constants qw(:rdfs);
 
-use constant RDF_NS => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
-use constant RDFS_NS => 'http://www.w3.org/2000/01/rdf-schema#';
 
 sub new {
     my ($pkg, %options) = @_;
@@ -79,10 +78,9 @@ sub subclass {
     
     croak "Function subclass expects one parameter."
       unless @$params == 1;
-    croak "What does [".$subject->getLabel.
-      "].subclass([".$params->[0]->getLabel."]) mean?" if $subject;
+    croak "Subject parameter not allowed for function subclass." if $subject;
     my @subClasses;
-    my $pred = $self->getOptions->{Factory}->newResource(RDFS_NS.'subClassOf');
+    my $pred = $self->getOptions->{Factory}->newResource(RDFS_SUBCLASS_OF);
     my $enum = $self->getOptions->{Schema}->getStmts(undef,$pred,$params->[0]);
     while (my $st = $enum->getNext) {
 	push @subClasses, $st->getSubject;
@@ -102,7 +100,7 @@ sub subproperty {
     croak "Function subproperty expects one parameter."
       unless @$params == 1;
     my @subProperties;
-    my $pred = $self->getOptions->{Factory}->newResource(RDFS_NS.'subPropertyOf');
+    my $pred = $self->getOptions->{Factory}->newResource(RDFS_SUBPROPERTY_OF);
     my $enum = $self->getOptions->{Schema}->getStmts(undef,$pred,$params->[0]);
     while (my $st = $enum->getNext) {
 	push @subProperties, $st->getSubject;
@@ -137,12 +135,11 @@ sub member {
     my @members;
     my @sorted_members;
     
-#    my $pred = $self->getOptions->{Factory}->newResource(RDFS_NS.'type');
     if ($subject && !$subject->isLiteral) {
 	my $enum = $self->getOptions->{Data}->
 	  getStmts($subject,undef,undef);
 	while (my $st = $enum->getNext) {
-	    if ($st->getPredicate->getURI =~ /\#\_(\d)$/) {
+	    if ($st->getPredicate->getURI =~ /\#\_(\d+)$/) {
 		push @members, [$st->getObject,$st->getPredicate,$1];
 	    }
 	}

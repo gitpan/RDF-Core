@@ -39,6 +39,19 @@ require Exporter;
 
 use Carp;
 
+use Exporter;
+use vars qw(@ISA @EXPORT_OK @EXP_SYNTAX %EXPORT_TAGS);
+
+@ISA = qw(Exporter);
+@EXP_SYNTAX = qw(Q_QUERY Q_RESULTSET Q_SOURCE Q_SOURCEPATH Q_HASTARGET
+		 Q_TARGET Q_CONDITION Q_NAMESPACE Q_MATCH Q_PATH
+		 Q_CLASS Q_BINDING Q_ELEMENTS Q_ELEMENTPATH Q_ELEMENT
+		 Q_FUNCTION Q_NODE Q_VARIABLE Q_URIDEF Q_NAME Q_EXPRESSION
+		 Q_CONNECTION Q_RELATION Q_OPERATION Q_LITERAL Q_URI 
+                 Q_SUBSTITUTION);
+@EXPORT_OK = (@EXP_SYNTAX);
+%EXPORT_TAGS = (syntax => \@EXP_SYNTAX);
+
 # token types
 use constant TOK_NONE     => 'TOK_NONE';
 use constant TOK_END      => 'TOK_END';
@@ -47,6 +60,8 @@ use constant TOK_LITERAL  => 'TOK_LITERAL';
 use constant TOK_VAR      => 'TOK_VAR';
 use constant TOK_URI      => 'TOK_URI';
 use constant TOK_NAME     => 'TOK_NAME';
+use constant TOK_COMMENT  => 'TOK_COMMENT';
+use constant TOK_SUBSTITUTION  => 'TOK_SUBSTITUTION';
 
 use constant TOK_CLASS    => 'TOK_CLASS';
 use constant TOK_MATCH    => 'TOK_MATCH';
@@ -102,6 +117,7 @@ use constant Q_RELATION     => 'RELATION';
 use constant Q_OPERATION    => 'OPERATION';
 use constant Q_LITERAL      => 'LITERAL';
 use constant Q_URI          => 'URI';
+use constant Q_SUBSTITUTION => 'SUBSTITUTION';
 
 sub new {
     my ($pkg,%options) = @_;
@@ -120,11 +136,22 @@ sub query {
     my ($self, $queryString) = @_;
     my @tokens = $self->_tokenize($queryString);
     $self->_parse (\@tokens);
-    $self->_syntaxTree($self->{QUERY}[0],50,'')
+    $self->_syntaxTree($self->{+Q_QUERY}[0],50,'')
       if $self->getOptions->{Debug};
-    $self->getOptions->{Evaluator}->evaluate($self->{QUERY}[0]);
-    return 1;
-
+    return $self->getOptions->{Evaluator}->evaluate($self->{+Q_QUERY}[0]);
+}
+sub prepare {
+    my ($self, $queryString) = @_;
+    my @tokens = $self->_tokenize($queryString);
+    $self->_parse (\@tokens);
+    $self->_syntaxTree($self->{+Q_QUERY}[0],50,'')
+      if $self->getOptions->{Debug};
+    return $self->{+Q_QUERY}[0];
+}
+sub execute {
+    my ($self, $substitutions, $query) = @_;
+    $query ||= $self->{+Q_QUERY}[0];
+    return $self->getOptions->{Evaluator}->evaluate($query, $substitutions);
 }
 
 sub _tokenize {
@@ -139,8 +166,10 @@ sub _tokenize {
     my $lastToken = -1;
     until ($lastToken eq TOK_END || $lastToken eq TOK_NONE) {
 	my $token = $self->_nextToken(\$queryString,\$pos);
-	push @tokens, $token;
-	$lastToken = $token->{type};
+	unless ($token->{type} eq TOK_COMMENT) {
+	    push @tokens, $token;
+	    $lastToken = $token->{type};
+	}
     }
     return @tokens;
 }
@@ -157,7 +186,7 @@ sub _nextToken {
     my $firstChar = substr($$str, $$pos, 1);
     my $secondChar = substr($$str, $$pos + 1, 1);
     
-    print "\tgetting next token at pos $$pos, from ",substr ($$str, $$pos, 20)
+    print "\ngetting next token at pos $$pos, from ",substr ($$str, $$pos, 20)
       if $self->getOptions->{Debug};
     
     if ($firstChar eq '') {
@@ -178,10 +207,6 @@ sub _nextToken {
 	$retVal->{type} = TOK_RCUR;
 	$retVal->{value} = $firstChar;
 	$$pos++;
-    } elsif ($firstChar eq '.') {
-	$retVal->{type} = TOK_PERIOD;
-	$retVal->{value} = $firstChar;
-	$$pos++;
     } elsif ($firstChar eq ',') {
 	$retVal->{type} = TOK_COMMA;
 	$retVal->{value} = $firstChar;
@@ -199,6 +224,15 @@ sub _nextToken {
 	    $retVal->{type} = TOK_EQ;
 	    $retVal->{value} = $firstChar;
 	    $$pos++;
+	}
+    } elsif ($firstChar eq '-') {
+	if ($secondChar eq '>') {
+	    $retVal->{type} = TOK_PERIOD;
+	    $retVal->{value} = $firstChar.$secondChar;
+	    $$pos += 2;
+	} elsif ($secondChar eq '-') {
+	    $retVal->{type} = TOK_COMMENT;
+	    $retVal->{value} = $self->_str2Token($str, $pos, $retVal->{type})
 	}
     } elsif ($firstChar eq '<') {
 	if ($secondChar eq '=') {
@@ -268,12 +302,18 @@ sub _nextToken {
     } elsif ($firstChar eq '?' || $firstChar eq '$') {
 	$retVal->{type} = TOK_VAR;
 	$retVal->{value} = $self->_str2Token($str, $pos, $retVal->{type});
+    } elsif ($firstChar eq '#') {
+	$retVal->{type} = TOK_SUBSTITUTION;
+	$retVal->{value} = $self->_str2Token($str, $pos, TOK_VAR);
     } elsif ($firstChar eq '[') {
 	$retVal->{type} = TOK_URI;
 	$retVal->{value} = $self->_str2Token($str, $pos, $retVal->{type});
     } elsif ($firstChar =~ /\w/) {
 	$retVal->{type} = TOK_NAME;
 	$retVal->{value} = $self->_str2Token($str, $pos, $retVal->{type});
+    } elsif ($firstChar eq '/' && $secondChar eq '*') {
+	$retVal->{type} = TOK_COMMENT;
+	$retVal->{value} = $self->_str2Token($str, $pos, $retVal->{type})
     } else {
 	$retVal->{type} = TOK_NONE;
 	$retVal->{value} = $firstChar;
@@ -347,6 +387,32 @@ sub _str2Token {
 	    }
 	}
 	$$pos = $subpos;
+    } elsif ($tokenType eq TOK_COMMENT) {
+	my $delim;
+	my $delimLength;
+
+	if (substr ($$str, $$pos, 2) eq '/*') {
+	    $delim = "*/";
+	    $delimLength = 2;
+	} else {
+	    $delim = "\n";
+	    $delimLength = 1;
+	}
+	my $subpos = $$pos ;
+	my $found = 0;
+	while (defined (my $char = substr ($$str, ++$subpos, $delimLength))) {
+	    if ($char eq $delim) {
+		$found = $subpos;
+		last;
+	    } else {
+		$retVal .= $char;
+	    }
+	}
+	unless ($found || $delim eq "\n") {
+	    croak "Syntax error: Infinite comment at position ".$$pos
+	      ."\n".substr ($$str, $$pos,30);
+	}
+	$$pos = $subpos += $delimLength;
     }
     return $retVal;
 }
@@ -356,7 +422,7 @@ sub _parse {
     #init query tree
     delete $self->{+Q_QUERY};
     my @context = ([Q_QUERY, 0]);
-    my @rndParens; #keep track of which parenthesis you are in
+    my @rndParens;		#keep track of which parenthesis you are in
     $self->_treeNode(\@context);
     
     for (my $i = 0; $i < @$tokens; $i++) {
@@ -386,7 +452,7 @@ sub _parse {
 		# if there is a token value in it
 		# $node->{elements}[0]{element} = [] is ok
 		# $node->{elements}[0]{element} = [{node}...] is not ok
-
+		
 		undef %$node;
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
@@ -423,16 +489,26 @@ sub _parse {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
 	} elsif ($token->{type} eq TOK_URI) {
-	    
-	    if (@context[@context - 1]->[0] eq Q_ELEMENT) {
+            
+            if (@context[@context - 1]->[0] eq Q_ELEMENT) {
 		my $node = $self->_treeNodeAppend(\@context, Q_NODE);
 		$node->{+Q_URI}->[0] = $token->{value};
-		pop @context;  #Q_NODE
-		pop @context;  #Q_ELEMENT
+		pop @context;	#Q_NODE
+                pop @context;	#Q_ELEMENT
 	    } elsif (@context[@context - 1]->[0] eq Q_NAMESPACE) {
 		my $node = $self->_treeNode(\@context);
 		my $index = defined $node->{+Q_URI} ? @{$node->{+Q_URI}} : 0;
 		$node->{+Q_URI}->[$index] = $token->{value};
+            } else {
+                _errSyntax ($tokens, $i, \@context, "Unexpected token");                
+            }
+	} elsif ($token->{type} eq TOK_SUBSTITUTION) {
+	    
+	    if (@context[@context - 1]->[0] eq Q_ELEMENT) {
+		my $node = $self->_treeNodeAppend(\@context, Q_SUBSTITUTION);
+		$node->{+Q_NAME}->[0] = $token->{value};
+		pop @context;	#Q_SUBSTITUTION
+		pop @context;	#Q_ELEMENT
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
@@ -467,21 +543,29 @@ sub _parse {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
 	} elsif ($token->{type} eq TOK_CLASS) {
-	    until ( @context == 0 || 
-		    @context[@context - 1]->[0] eq Q_PATH ||
-		    @context[@context - 1]->[0] eq Q_SOURCEPATH) {
-		pop @context;
-	    }
-	    my $pathtype = @context[@context - 1]->[0];
-	    if (@context > 0) {
-		my $node = $self->_treeNode(\@context);
-		$self->_treeNodeAppend(\@context, Q_CLASS);
-		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
-		  if $pathtype eq Q_PATH;
-		$self->_treeNodeAppend(\@context, Q_ELEMENT);
-	    } else {
-		_errSyntax ($tokens, $i, \@context, "Unexpected token");
-	    }
+  	    until ( @context == 0 || 
+  		    @context[@context - 1]->[0] eq Q_PATH ||
+  		    @context[@context - 1]->[0] eq Q_SOURCEPATH) {
+  		pop @context;
+  	    }
+  	    if (@context > 0) {
+		#move node into Q_CLASS
+		#move one level up in the tree and get parent node
+		my $pathType = pop @context;  
+		my $pathNode = $self->_treeNode(\@context);
+		my $node = $pathNode->{$pathType->[0]}[$pathType->[1]];
+		delete $pathNode->{$pathType->[0]}[$pathType->[1]];
+		#move back one level down
+		push @context, $pathType;
+		my $class = $self->_treeNodeAppend(\@context, Q_CLASS);
+		%$class = %$node;
+		pop @context;	#Q_CLASS
+  		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
+  		  if $pathType->[0] eq Q_PATH;
+  		$self->_treeNodeAppend(\@context, Q_ELEMENT);
+  	    } else {
+  		_errSyntax ($tokens, $i, \@context, "Unexpected token");
+  	    }
 	} elsif ($token->{type} eq TOK_MATCH) {
 	    until (@context == 0 || @context[@context - 1]->[0] eq Q_SOURCEPATH) {
 		pop @context
@@ -521,7 +605,12 @@ sub _parse {
 		    $depth-- if $tok->{type} eq TOK_RPAREN;
 		    last unless $depth;
 		}
-		if (exists $significant{+TOK_COMMA}) {
+		#look one more token ahead
+		if ($tokens->[$pos+1]{type} eq TOK_CLASS) {
+		    $significant{+TOK_CLASS} = 1;
+		} 
+		if (exists $significant{+TOK_COMMA} ||
+		    exists $significant{+TOK_CLASS}) {
 		    #elements
 		    push @rndParens, Q_ELEMENTS;
 		    $self->_treeNodeAppend(\@context,Q_MATCH);
@@ -539,7 +628,7 @@ sub _parse {
 			$self->_treeNodeAppend(\@context,Q_ELEMENTS);
 			$self->_treeNodeAppend(\@context,Q_ELEMENT);
 		    }
-		} elsif (#exists $significant{+TOK_LITERAL} ||
+		} elsif (	#exists $significant{+TOK_LITERAL} ||
 			 exists $significant{+TOK_PIPE}) {
 		    #expression
 		    push @rndParens, Q_EXPRESSION;
@@ -599,7 +688,7 @@ sub _parse {
 		$item = pop @context;
 	    }
 	    if (@context > 0) {
-		pop @context  #element
+		pop @context	#element
 		  if $item->[0] eq Q_FUNCTION;
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
@@ -611,61 +700,61 @@ sub _parse {
 		my $node = $self->_treeNode(\@context);
 		my $index = @{$node->{+Q_ELEMENT}} -1;
 		push @context, [Q_BINDING, $index];
-	    } elsif (@context[@context - 2]->[0] eq Q_SOURCEPATH &&
-		     @context[@context - 1]->[0] eq Q_CLASS) {
-		#variable binding in Class expression
-		my $node = $self->_treeNodeAppend(\@context, Q_BINDING);
+		#	    } elsif (@context[@context - 2]->[0] eq Q_SOURCEPATH &&
+		#		     @context[@context - 1]->[0] eq Q_CLASS) {
+		#		#variable binding in Class expression
+		#		my $node = $self->_treeNodeAppend(\@context, Q_BINDING);
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
-
+	    
 	} elsif ($token->{type} eq TOK_RCUR) {
 	    until (@context == 0 ||
 		   @context[@context - 1]->[0] eq Q_BINDING
 		  ) {
 		pop @context;
-	    };
-	    pop @context;   #Q_BINDING
-
+	    }
+	    ;
+	    pop @context;	#Q_BINDING
+	    
 	} elsif ($token->{type} eq TOK_PERIOD) {
 	    if (@context[@context - 1]->[0] eq Q_ELEMENTPATH ||
 		@context[@context - 1]->[0] eq Q_SOURCEPATH) {
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENTS ||
 		     @context[@context - 1]->[0] eq Q_PATH) {
-		#Q_ELEMENTS is to be removed and optionally Q_CLASS
-		#(or anything up to Q_PATH)
+		#Q_ELEMENTS is to be removed (or anything up to Q_PATH)
 		until (@context == 0 || @context[@context-1]->[0] eq Q_PATH) {
 		    pop @context;
 		}
-
+		
 		$self->_treeNodeAppend(\@context, Q_ELEMENTS);
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
-	    } elsif (@context[@context - 1]->[0] eq Q_CLASS) {
-		#Q_CLASS is to be removed and then decide whether Q_ELEMENTS
-		#should be added
-		pop @context;  #Q_CLASS
-		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
-		  if @context[@context - 1]->[0] eq Q_PATH;
-		$self->_treeNodeAppend(\@context, Q_ELEMENT);
+		#	    } elsif (@context[@context - 1]->[0] eq Q_CLASS) {
+		#		#Q_CLASS is to be removed and then decide whether Q_ELEMENTS
+		#		#should be added
+		#		pop @context;  #Q_CLASS
+		#		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
+		#		  if @context[@context - 1]->[0] eq Q_PATH;
+		#		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");
 	    }
 	} elsif ($token->{type} eq TOK_COMMA) {
 	    if (@context[@context - 1]->[0] eq Q_EXPRESSION) {
-		pop @context;  #Q_EXPRESSION
+		pop @context;	#Q_EXPRESSION
 	    }
 	    if (@context[@context - 1]->[0] eq Q_TARGET) {
-		pop @context;  #Q_TARGET
+		pop @context;	#Q_TARGET
 	    }
-	    if (@context[@context - 1]->[0] eq Q_CLASS) {
-		#finish Q_CLASS and continue with some PATH
-		pop @context;  #Q_CLASS
-	    }
+	    #	    if (@context[@context - 1]->[0] eq Q_CLASS) {
+	    #		#finish Q_CLASS and continue with some PATH
+	    #		pop @context;  #Q_CLASS
+	    #	    }
 	    if (@context[@context - 1]->[0] eq Q_ELEMENTPATH ||
 		@context[@context - 1]->[0] eq Q_SOURCEPATH) {
 		my $type = @context[@context - 1]->[0];
-		pop @context;  #$type
+		pop @context;	#$type
 		$self->_treeNodeAppend(\@context, $type);
 		$self->_treeNodeAppend(\@context,Q_ELEMENT);
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENTS) {
@@ -707,7 +796,7 @@ sub _parse {
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
-
+	    
 	} elsif ($token->{type} eq TOK_SELECT) {
 	    if (@context[@context - 1]->[0] eq Q_QUERY) {
 		$self->_treeNodeAppend(\@context, Q_RESULTSET);
@@ -763,7 +852,7 @@ sub _parse {
 		pop @context;
 	    }
 	    if (@context > 0) {
-		pop @context; #Q_CONDITION 
+		pop @context;	#Q_CONDITION 
 		my $node = $self->_treeNode(\@context);
 		$node->{+Q_CONNECTION} = [] unless exists $node->{+Q_CONNECTION};
 		my $index = @{$node->{+Q_CONNECTION}};
@@ -855,7 +944,7 @@ __END__
 
 =head1 NAME
 
-RDF::Core::Query Implementation of query language
+RDF::Core::Query - Implementation of query language
 
 =head1 SYNOPSIS
 
@@ -887,9 +976,9 @@ RDF::Core::Query Implementation of query language
 
   my $query = new RDF::Core::Query(Evaluator=> $evaluator);
 
-  my $result = $query->query('Select ?x.title 
-                              From store.book{?x}.author{?y} 
-                              Where ?y = "Lewis"');
+  $query->query("Select ?x->title 
+                 From store->book{?x}->author{?y} 
+                 Where ?y = 'Lewis'");
 
 =head1 DESCRIPTION
 
@@ -913,136 +1002,153 @@ RDF::Core::Evaluator object.
 
 =item * query($queryString)
 
-Evaluates $queryString. There is an option Row in RDF::Core::Evaluator, which contains a function to handle a row returned from query. The handler is called for each row of the result. Parameters of the handler are RDF::Core::Resource or RDF::Core::Literal or undef values.
+Evaluates $queryString. Returns an array reference, each item containing one resulting row. There is an option Row in RDF::Core::Evaluator, which contains a function to handle a row returned from query. If the handler is set, it is called for each row of the result and no result array is returned. Parameters of the handler are RDF::Core::Resource or RDF::Core::Literal or undef values.
+
+=item * prepare($queryString)
+
+Prepares parsed query from $queryString. The string can contain external variables - names with hash prepended (#name), which are bound to values in execute().
+
+=item * execute(\%bindings,$parsedQuery)
+
+Executes prepared query. If $parsedQuery is not supplied, the last prepared/executed/queried query is executed. Binding hash must contain value for each external variable used. The value is RDF::Core::Resource or RDF::Core::Literal object.
 
 =back
 
 =head2 Query language
 
-Query language has three major parts, beginning with B<select>, B<from> and B<where>. The B<select> part specifies which "columns" of data should be returned. The B<from> part defines the pattern or path in the graph I'm searching for and binds variables to specific points of the path. The B<where> part specifies conditions that each path found must conform.  
+Query language has three major parts, beginning with B<select>, B<from> and B<where> keywords. The B<select> part specifies which "columns" of data should be returned. The B<from> part defines the pattern or path in the graph I'm searching for and binds variables to specific points of the path. The B<where> part specifies conditions that each path found must conform.  
 
 Let's start in midst, with B<from> part:
 
-  Select ?x from ?x.ns:author
+  Select ?x from ?x->ns:author
 
 This will find all resources that have property ns:author. We can chain properties:
 
-  Select ?x from ?x.ns:author.ns:name
+  Select ?x from ?x->ns:author->ns:name
 
 This means find all resources that have property ns:author and value of the property has property ns:name. We can bind values to variables to refer them back:
 
-  Select ?x from ?x.ns:author{?author}.ns:name{?name}
+  Select ?x, ?authorName from ?x->ns:author{?authorID}->ns:name{?authorName}
 
-This means find the same as in the recent example and bind ?author variable to author value and ?name to name value. The variable is bound to a value of property, not property itself. If there is a second variable bound, it's bound to property itself:
+This means find the same as in the recent example and bind ?authorID variable to author value and ?authorName to name value. The variable is bound to a value of property, not property itself. If there is a second variable bound, it's bound to property itself:
 
-  Select ?x from ?x.ns:author{?author}.ns:name{?name,?prop}
+  Select ?x from ?x->ns:author{?authorID}->ns:name{?authorName,?prop}
 
-The variable ?name will contain a name of an author, while ?prop variable will contain an uri of ns:name property. Now we can add second path, connected to the first one:
+The variable ?authorName will contain a name of an author, while ?prop variable will contain an uri of ns:name property. This kind of binding can be useful with function calls (see below).
+
+If there is more then one path specified, the result must satisfy all of them. Common variables represent the same value, describing how the paths are joined together. If there are no common variables in two paths, cartesian product is produced.
 
   Select ?x 
-  From ?x.ns:author{?author}.ns:name{?name}, ?author.ns:birth{?birth}
+  From ?x->ns:author{?author}->ns:name{?name}, 
+       ?author->ns:birth{?birth}
+
+B<Target element.> The value of the last property in the path can be specified:
+
+  Select ?x from ?x->ns:author->ns:name=>'Lewis'
+
+
+B<Class expression.> Class of the starting element in the path can be specified:
+
+  Select ?x from ns:Book::?x->ns:author
+
+which is equivalent to 
+
+  Select ?x from ?x->ns:author, ?x->rdf:type=>ns:Book
+
+supposing we have defined namespace rdf = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'. (See B<Names and URIs> paragraph later in the text.)
 
 B<Condition.> Now we described data we talk about and let's put more conditions on them in B<where> section:
 
   Select ?x 
-  From ?x.ns:author{?author}.ns:name{?name}, ?author.ns:birth{?birth}
-  Where ?name = 'Lewis' And  ?birth.ns:year < '1900'
+  From ?x->ns:author{?author}->ns:name{?name}, ?author->ns:birth{?birth}
+  Where ?name = 'Lewis' And  ?birth->ns:year < '1900'
 
-This means: get all paths in the graph described in B<from> section and exclude those that don't conform the condition. Only variables declared in B<from> section can be used, binding is not allowed here. There are some shortcuts available in condition. 
+This means: get all paths in the graph described in B<from> section and exclude those that don't conform the condition. Only variables declared in B<from> section can be used, binding is not allowed in condition. 
 
-First, rdf:type can be queried in this way:
-
-  Select ?x, ?y From ?x::?y
-
-instead of
-
-  Select ?x, ?y From ?x.rdf:type{?y}
-
-and we can append properties to this statement. This allows us to say "someone's (he is a writer, by the way) name":
+In condition, each element (resource, predicate or value) can be replaced with a list of variants. So we may ask:
 
   Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::clss:Writer.name = 'Lewis'
+  From ?x->ns:author{?author}
+  Where ?author->(ns:book,ns:booklet,ns:article)->ns:published < '1938'
 
-which is equivalent to 
+and it means
+
+  Select ?x 
+  From ?x->ns:author{?author}, ?author->ns:birth{?birth}
+  Where ?author->ns:book.published < '1938'
+     Or ?author->ns:booklet.published < '1938'
+     Or ?author->ns:article.published < '1938'
+
+The list of variants can be combined with class expression:
+
+  Select ?x 
+  From ?x->ns:author{?author}
+    Where (clss:Writer, clss:Teacher)::?author->ns:birth < '1900'
+
+and it means
 
   ...
-  Where ?author.rdf:type = clss:Writer And ?author.name = 'Lewis' 
-
-supposing we have defined namespace rdf = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'. (See B<Names and URIs> paragraph later in the text.)
-
-Second, each resource, predicate or value can be replaced with a list of variants. So we may ask:
-
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.(ns:book,ns:booklet,ns:article).published < '1938'
-
-and it means
-
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.ns:book.published < '1938'
-     Or ?author.ns:booklet.published < '1938'
-     Or ?author.ns:article.published < '1938'
-
-The list of variants can be combined with rdf:type shortcut:
-
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::(clss:Writer, clss:Teacher).name = 'Lewis'
-
-and it means
-
-  Where (?author.rdf:type = clss:Writer 
-         Or ?author.rdf:type = clss:Teacher) 
-    And ?author.name = 'Lewis' 
+  Where (?author->rdf:type = clss:Writer 
+         Or ?author->rdf:type = clss:Teacher) 
+    And ?author->ns:birth < '1900' 
 
 B<Resultset.>  The B<select> section describes how to output each path found. We can think of a path as a n-tuple of values bound to variables.
 
-  Select ?x.ns:title, ?author.ns:name 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::(clss:Writer, clss:Teacher).name = 'Lewis'
+  Select ?x->ns:title, ?author->ns:name 
+  From ?x->ns:author{?author}
+    Where (clss:Writer, clss:Teacher)::?author->ns:birth < '1900'
 
-For each n-tuple ?x.ns:title and ?author.ns:name are evaluated and the pair of values is returned as one row of the result. If there is no value for ?x.ns:title, undef is returned instead of the value. If there are more values for one particular ?x.ns:title, all of them are returned in carthesian product with ?author.ns:name.
+
+For each n-tuple [?x, ?author] conforming the query ?x->ns:title and ?author->ns:name are evaluated and the pair of values is returned as one row of the result. If there is no value for ?x->ns:title, undef is returned instead of the value. If there are more values for one particular ?x->ns:title, all of them are returned in cartesian product with ?author->ns:name.
 
 B<Names and URIs>
 
 'ns:name' is a shortcut for URI. Each B<prefix:name> is evaluated to URI as B<prefix value> concatenated with B<name>. If prefix is not present, prefix B<Default> is taken. There are two ways to assign a namespace prefix to its value. You can specify prefix and its value in Evaluator's option Namespaces. This is a global setting, which applies to all queries evaluated by Query object. Locally you can set namespaces in each select, using B<USE> clause. This overrides global settings for the current select. URIs can be typed explicitly in square brackets. The following queries are equivalent:
 
-  Select ?x from ?x.[http://myApp.gingerall.org/ns#name]
+  Select ?x from ?x->[http://myApp.gingerall.org/ns#name]
 
-  Select ?x from ?x.ns:name
+  Select ?x from ?x->ns:name
   Use ns For [http://myApp.gingerall.org/ns#]
 
 B<Functions>
 
 Functions can be used to obtain custom values for a resource. They accept recources or literals as parameters and return set of resources or literals. They can be used in place of URI or name. If they are at position of property, they get resource as a special parameter and what they return is considered to be a value of the expression rather then 'real' properties.
 
-Let's have function foo() that always returns resource with URI http://myApp.gingerall.org/ns#name.
+Let's have function foo() that always returns resource with URI http://myApp.gingerall.org/ns#foo. The expression
 
-  ?x.foo()
+  ?x->foo()
 
-This evaluates to  
+evaluates to  
 
-  [http://myApp.gingerall.org/ns#name], 
+  [http://myApp.gingerall.org/ns#foo], 
 
 not 
 
-  ?x.[http://myApp.gingerall.org/ns#name]
+  ?x->[http://myApp.gingerall.org/ns#foo]
 
 Now we can restate the condition with variants to a condition with a function call.
 
   Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.subproperty(publication).published < '1938'
+  From ?x->ns:author{?author}
+  Where ?author->subproperty(ns:publication)->ns:published < '1938'
 
 We consider we have apropriate schema where book, booklet, article etc. are (direct or indirect) rdfs:subPropertyOf publication.
 
-The above function does this: search schema for subproperties of publication and return value of the subproperty. Sometimes we'd like to know not only value of that "hidden" property, but the property itself. Again, we can use a multiple binding, we get uri of publication in ?publication and uri of property (book, booklet, article, ...) in ?property.
+The above function does this: search schema for subproperties of publication and return value of the subproperty. Sometimes we'd like to know not only value of that "hidden" property, but the property itself. Again, we can use a multiple binding. In following example we get uri of publication in ?publication and uri of property (book, booklet, article, ...) in ?property.
 
   Select ?publication, ?property
-  From ?author.subproperty(publication){?publication, ?property}
-  Where ?publication.published < '1938'
+  From ?author->subproperty(ns:publication){?publication, ?property}
+  Where ?publication->ns:published < '1938'
+
+B<Comments.>
+
+Comments are prepended with two dashes (to end of line or string), or enclosed in slash asterisk parenthesis /*...*/.
+
+  Select ?publication, ?property --the rest of line is a comment
+  From ?author->subproperty(publication){?publication, ?property}
+  Where /*another
+          comment*/ ?publication->published < '1938'
+
 
 =head2 A BNF diagram for query language
 
@@ -1050,19 +1156,18 @@ The above function does this: search schema for subproperties of publication and
                     ["Use" <namespaces>]
   <resultset>	::= <elementpath>{","<elementpath>}
   <source>	::= <sourcepath>{","<sourcepath>}
-  <sourcepath>	::= <element>[ "{" <variable> "}" ]
-                    ["::"<element>[ "{" <variable> "}" ]]
-                    {"."<element>[ "{" <variable> [, <variable>]"}" ]} 
+  <sourcepath>	::= [<element>[ "{" <variable> "}" ]"::"]
+                    <element>[ "{" <variable> "}" ]
+                    {"->"<element>[ "{" <variable> [, <variable>]"}" ]} 
 		    ["=>"<element> | <expression>]
   <condition>	::= <match> | <condition> <connection> <condition> 
                     {<connection> <condition>} 
 		    | "(" <condition> ")"
   <namespaces>  ::= <name> ["For"] "["<uri>"]" { "," <name> [for] "["<uri>"]"}
   <match>	::= <path> [<relation> <path>]
-  <path>	::= <classpath>{"."<elements>} | <expression>
-  <classpath>   ::= <elements>["::"<elements>]
+  <path>	::= [<elements>"::"]<elements>{"->"<elements>} | <expression>
   <elements>	::= <element> | "(" <element>  {"," <element>} ")"
-  <elementpath>	::= <element>{"."<element>} | <expression>
+  <elementpath>	::= <element>{"->"<element>} | <expression>
   <element>	::= <variable> | <node> | <function> 
   <function>	::= <name> "(" <elementpath>["," <elementpath>] ")"
   <node>	::= "[" <uri> "]" | "[" "_:" <name> "]" | [<name>":"]<name>
@@ -1091,5 +1196,4 @@ Ginger Alliance, rdf@gingerall.cz
 RDF::Core::Evaluator, RDF::Core::Function
 
 =cut
-
 

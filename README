@@ -70,7 +70,7 @@ Change working directory to ./dbmodel/pgsql
 Execute sql script in rdf-pgsql.sql
 
 Of course, we're not able to test it on all Unix machines, so if you
-meet any problem, fell free to contact us.
+meet any problem, feel free to contact us.
 
 
 

@@ -1,7 +1,7 @@
 <HTML>
 <HEAD>
 <TITLE>Query.pm</TITLE>
-<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
 </HEAD>
 
 <BODY>
@@ -65,9 +65,9 @@
 <PRE>
   my $query = new RDF::Core::Query(Evaluator=&gt; $evaluator);</PRE>
 <PRE>
-  my $result = $query-&gt;query('Select ?x.title 
-                              From store.book{?x}.author{?y} 
-                              Where ?y = &quot;Lewis&quot;');</PRE>
+  $query-&gt;query(&quot;Select ?x-&gt;title 
+                 From store-&gt;book{?x}-&gt;author{?y} 
+                 Where ?y = 'Lewis'&quot;);</PRE>
 <P>
 <HR>
 <H1><A NAME="description">DESCRIPTION</A></H1>
@@ -85,106 +85,118 @@ RDF::Core::Evaluator object.
 <P></P></UL>
 <LI><STRONG><A NAME="item_query"><CODE>query($queryString)</CODE></A></STRONG><BR>
 
-Evaluates $queryString. There is an option Row in RDF::Core::Evaluator, which contains a function to handle a row returned from query. The handler is called for each row of the result. Parameters of the handler are RDF::Core::Resource or RDF::Core::Literal or undef values.
+Evaluates $queryString. Returns an array reference, each item containing one resulting row. There is an option Row in RDF::Core::Evaluator, which contains a function to handle a row returned from query. If the handler is set, it is called for each row of the result and no result array is returned. Parameters of the handler are RDF::Core::Resource or RDF::Core::Literal or undef values.
+<P></P>
+<LI><STRONG><A NAME="item_prepare"><CODE>prepare($queryString)</CODE></A></STRONG><BR>
+
+Prepares parsed query from $queryString. The string can contain external variables - names with hash prepended (#name), which are bound to values in execute().
+<P></P>
+<LI><STRONG><A NAME="item_execute"><CODE>execute(\%bindings,$parsedQuery)</CODE></A></STRONG><BR>
+
+Executes prepared query. If $parsedQuery is not supplied, the last prepared/executed/queried query is executed. Binding hash must contain value for each external variable used. The value is RDF::Core::Resource or RDF::Core::Literal object.
 <P></P></UL>
 <P>
 <H2><A NAME="query language">Query language</A></H2>
-<P>Query language has three major parts, beginning with <STRONG>select</STRONG>, <STRONG>from</STRONG> and <STRONG>where</STRONG>. The <STRONG>select</STRONG> part specifies which ``columns'' of data should be returned. The <STRONG>from</STRONG> part defines the pattern or path in the graph I'm searching for and binds variables to specific points of the path. The <STRONG>where</STRONG> part specifies conditions that each path found must conform.</P>
+<P>Query language has three major parts, beginning with <STRONG>select</STRONG>, <STRONG>from</STRONG> and <STRONG>where</STRONG> keywords. The <STRONG>select</STRONG> part specifies which ``columns'' of data should be returned. The <STRONG>from</STRONG> part defines the pattern or path in the graph I'm searching for and binds variables to specific points of the path. The <STRONG>where</STRONG> part specifies conditions that each path found must conform.</P>
 <P>Let's start in midst, with <STRONG>from</STRONG> part:</P>
 <PRE>
-  Select ?x from ?x.ns:author</PRE>
+  Select ?x from ?x-&gt;ns:author</PRE>
 <P>This will find all resources that have property ns:author. We can chain properties:</P>
 <PRE>
-  Select ?x from ?x.ns:author.ns:name</PRE>
+  Select ?x from ?x-&gt;ns:author-&gt;ns:name</PRE>
 <P>This means find all resources that have property ns:author and value of the property has property ns:name. We can bind values to variables to refer them back:</P>
 <PRE>
-  Select ?x from ?x.ns:author{?author}.ns:name{?name}</PRE>
-<P>This means find the same as in the recent example and bind ?author variable to author value and ?name to name value. The variable is bound to a value of property, not property itself. If there is a second variable bound, it's bound to property itself:</P>
+  Select ?x, ?authorName from ?x-&gt;ns:author{?authorID}-&gt;ns:name{?authorName}</PRE>
+<P>This means find the same as in the recent example and bind ?authorID variable to author value and ?authorName to name value. The variable is bound to a value of property, not property itself. If there is a second variable bound, it's bound to property itself:</P>
 <PRE>
-  Select ?x from ?x.ns:author{?author}.ns:name{?name,?prop}</PRE>
-<P>The variable ?name will contain a name of an author, while ?prop variable will contain an uri of ns:name property. Now we can add second path, connected to the first one:</P>
+  Select ?x from ?x-&gt;ns:author{?authorID}-&gt;ns:name{?authorName,?prop}</PRE>
+<P>The variable ?authorName will contain a name of an author, while ?prop variable will contain an uri of ns:name property. This kind of binding can be useful with function calls (see below).</P>
+<P>If there is more then one path specified, the result must satisfy all of them. Common variables represent the same value, describing how the paths are joined together. If there are no common variables in two paths, cartesian product is produced.</P>
 <PRE>
   Select ?x 
-  From ?x.ns:author{?author}.ns:name{?name}, ?author.ns:birth{?birth}</PRE>
+  From ?x-&gt;ns:author{?author}-&gt;ns:name{?name}, 
+       ?author-&gt;ns:birth{?birth}</PRE>
+<P><STRONG>Target element.</STRONG> The value of the last property in the path can be specified:</P>
+<PRE>
+  Select ?x from ?x-&gt;ns:author-&gt;ns:name=&gt;'Lewis'</PRE>
+<P><STRONG>Class expression.</STRONG> Class of the starting element in the path can be specified:</P>
+<PRE>
+  Select ?x from ns:Book::?x-&gt;ns:author</PRE>
+<P>which is equivalent to</P>
+<PRE>
+  Select ?x from ?x-&gt;ns:author, ?x-&gt;rdf:type=&gt;ns:Book</PRE>
+<P>supposing we have defined namespace rdf = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'. (See <STRONG>Names and URIs</STRONG> paragraph later in the text.)</P>
 <P><STRONG>Condition.</STRONG> Now we described data we talk about and let's put more conditions on them in <STRONG>where</STRONG> section:</P>
 <PRE>
   Select ?x 
-  From ?x.ns:author{?author}.ns:name{?name}, ?author.ns:birth{?birth}
-  Where ?name = 'Lewis' And  ?birth.ns:year &lt; '1900'</PRE>
-<P>This means: get all paths in the graph described in <STRONG>from</STRONG> section and exclude those that don't conform the condition. Only variables declared in <STRONG>from</STRONG> section can be used, binding is not allowed here. There are some shortcuts available in condition.</P>
-<P>First, rdf:type can be queried in this way:</P>
-<PRE>
-  Select ?x, ?y From ?x::?y</PRE>
-<P>instead of</P>
-<PRE>
-  Select ?x, ?y From ?x.rdf:type{?y}</PRE>
-<P>and we can append properties to this statement. This allows us to say ``someone's (he is a writer, by the way) name'':</P>
+  From ?x-&gt;ns:author{?author}-&gt;ns:name{?name}, ?author-&gt;ns:birth{?birth}
+  Where ?name = 'Lewis' And  ?birth-&gt;ns:year &lt; '1900'</PRE>
+<P>This means: get all paths in the graph described in <STRONG>from</STRONG> section and exclude those that don't conform the condition. Only variables declared in <STRONG>from</STRONG> section can be used, binding is not allowed in condition.</P>
+<P>In condition, each element (resource, predicate or value) can be replaced with a list of variants. So we may ask:</P>
 <PRE>
   Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::clss:Writer.name = 'Lewis'</PRE>
-<P>which is equivalent to</P>
+  From ?x-&gt;ns:author{?author}
+  Where ?author-&gt;(ns:book,ns:booklet,ns:article)-&gt;ns:published &lt; '1938'</PRE>
+<P>and it means</P>
+<PRE>
+  Select ?x 
+  From ?x-&gt;ns:author{?author}, ?author-&gt;ns:birth{?birth}
+  Where ?author-&gt;ns:book.published &lt; '1938'
+     Or ?author-&gt;ns:booklet.published &lt; '1938'
+     Or ?author-&gt;ns:article.published &lt; '1938'</PRE>
+<P>The list of variants can be combined with class expression:</P>
+<PRE>
+  Select ?x 
+  From ?x-&gt;ns:author{?author}
+    Where (clss:Writer, clss:Teacher)::?author-&gt;ns:birth &lt; '1900'</PRE>
+<P>and it means</P>
 <PRE>
   ...
-  Where ?author.rdf:type = clss:Writer And ?author.name = 'Lewis'</PRE>
-<P>supposing we have defined namespace rdf = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'. (See <STRONG>Names and URIs</STRONG> paragraph later in the text.)</P>
-<P>Second, each resource, predicate or value can be replaced with a list of variants. So we may ask:</P>
-<PRE>
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.(ns:book,ns:booklet,ns:article).published &lt; '1938'</PRE>
-<P>and it means</P>
-<PRE>
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.ns:book.published &lt; '1938'
-     Or ?author.ns:booklet.published &lt; '1938'
-     Or ?author.ns:article.published &lt; '1938'</PRE>
-<P>The list of variants can be combined with rdf:type shortcut:</P>
-<PRE>
-  Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::(clss:Writer, clss:Teacher).name = 'Lewis'</PRE>
-<P>and it means</P>
-<PRE>
-  Where (?author.rdf:type = clss:Writer 
-         Or ?author.rdf:type = clss:Teacher) 
-    And ?author.name = 'Lewis'</PRE>
+  Where (?author-&gt;rdf:type = clss:Writer 
+         Or ?author-&gt;rdf:type = clss:Teacher) 
+    And ?author-&gt;ns:birth &lt; '1900'</PRE>
 <P><STRONG>Resultset.</STRONG>  The <STRONG>select</STRONG> section describes how to output each path found. We can think of a path as a n-tuple of values bound to variables.</P>
 <PRE>
-  Select ?x.ns:title, ?author.ns:name 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author::(clss:Writer, clss:Teacher).name = 'Lewis'</PRE>
-<P>For each n-tuple ?x.ns:title and ?author.ns:name are evaluated and the pair of values is returned as one row of the result. If there is no value for ?x.ns:title, undef is returned instead of the value. If there are more values for one particular ?x.ns:title, all of them are returned in carthesian product with ?author.ns:name.</P>
+  Select ?x-&gt;ns:title, ?author-&gt;ns:name 
+  From ?x-&gt;ns:author{?author}
+    Where (clss:Writer, clss:Teacher)::?author-&gt;ns:birth &lt; '1900'</PRE>
+<P>For each n-tuple [?x, ?author] conforming the query ?x-&gt;ns:title and ?author-&gt;ns:name are evaluated and the pair of values is returned as one row of the result. If there is no value for ?x-&gt;ns:title, undef is returned instead of the value. If there are more values for one particular ?x-&gt;ns:title, all of them are returned in cartesian product with ?author-&gt;ns:name.</P>
 <P><STRONG>Names and URIs</STRONG></P>
 <P>'ns:name' is a shortcut for URI. Each <STRONG>prefix:name</STRONG> is evaluated to URI as <STRONG>prefix value</STRONG> concatenated with <STRONG>name</STRONG>. If prefix is not present, prefix <STRONG>Default</STRONG> is taken. There are two ways to assign a namespace prefix to its value. You can specify prefix and its value in Evaluator's option Namespaces. This is a global setting, which applies to all queries evaluated by Query object. Locally you can set namespaces in each select, using <STRONG>USE</STRONG> clause. This overrides global settings for the current select. URIs can be typed explicitly in square brackets. The following queries are equivalent:</P>
 <PRE>
-  Select ?x from ?x.[<A HREF="http://myApp.gingerall.org/ns#name">http://myApp.gingerall.org/ns#name</A>]</PRE>
+  Select ?x from ?x-&gt;[<A HREF="http://myApp.gingerall.org/ns#name">http://myApp.gingerall.org/ns#name</A>]</PRE>
 <PRE>
-  Select ?x from ?x.ns:name
+  Select ?x from ?x-&gt;ns:name
   Use ns For [<A HREF="http://myApp.gingerall.org/ns#">http://myApp.gingerall.org/ns#</A>]</PRE>
 <P><STRONG>Functions</STRONG></P>
 <P>Functions can be used to obtain custom values for a resource. They accept recources or literals as parameters and return set of resources or literals. They can be used in place of URI or name. If they are at position of property, they get resource as a special parameter and what they return is considered to be a value of the expression rather then 'real' properties.</P>
-<P>Let's have function <CODE>foo()</CODE> that always returns resource with URI <A HREF="http://myApp.gingerall.org/ns#name.">http://myApp.gingerall.org/ns#name.</A></P>
+<P>Let's have function <CODE>foo()</CODE> that always returns resource with URI <A HREF="http://myApp.gingerall.org/ns#foo.">http://myApp.gingerall.org/ns#foo.</A> The expression</P>
 <PRE>
-  ?x.foo()</PRE>
-<P>This evaluates to</P>
+  ?x-&gt;foo()</PRE>
+<P>evaluates to</P>
 <PRE>
-  [<A HREF="http://myApp.gingerall.org/ns#name">http://myApp.gingerall.org/ns#name</A>],</PRE>
+  [<A HREF="http://myApp.gingerall.org/ns#foo">http://myApp.gingerall.org/ns#foo</A>],</PRE>
 <P>not</P>
 <PRE>
-  ?x.[<A HREF="http://myApp.gingerall.org/ns#name">http://myApp.gingerall.org/ns#name</A>]</PRE>
+  ?x-&gt;[<A HREF="http://myApp.gingerall.org/ns#foo">http://myApp.gingerall.org/ns#foo</A>]</PRE>
 <P>Now we can restate the condition with variants to a condition with a function call.</P>
 <PRE>
   Select ?x 
-  From ?x.ns:author{?author}, ?author.ns:birth{?birth}
-  Where ?author.subproperty(publication).published &lt; '1938'</PRE>
+  From ?x-&gt;ns:author{?author}
+  Where ?author-&gt;subproperty(ns:publication)-&gt;ns:published &lt; '1938'</PRE>
 <P>We consider we have apropriate schema where book, booklet, article etc. are (direct or indirect) rdfs:subPropertyOf publication.</P>
-<P>The above function does this: search schema for subproperties of publication and return value of the subproperty. Sometimes we'd like to know not only value of that ``hidden'' property, but the property itself. Again, we can use a multiple binding, we get uri of publication in ?publication and uri of property (book, booklet, article, ...) in ?property.</P>
+<P>The above function does this: search schema for subproperties of publication and return value of the subproperty. Sometimes we'd like to know not only value of that ``hidden'' property, but the property itself. Again, we can use a multiple binding. In following example we get uri of publication in ?publication and uri of property (book, booklet, article, ...) in ?property.</P>
 <PRE>
   Select ?publication, ?property
-  From ?author.subproperty(publication){?publication, ?property}
-  Where ?publication.published &lt; '1938'</PRE>
+  From ?author-&gt;subproperty(ns:publication){?publication, ?property}
+  Where ?publication-&gt;ns:published &lt; '1938'</PRE>
+<P><STRONG>Comments.</STRONG></P>
+<P>Comments are prepended with two dashes (to end of line or string), or enclosed in slash asterisk parenthesis /*...*/.</P>
+<PRE>
+  Select ?publication, ?property --the rest of line is a comment
+  From ?author-&gt;subproperty(publication){?publication, ?property}
+  Where /*another
+          comment*/ ?publication-&gt;published &lt; '1938'</PRE>
 <P>
 <H2><A NAME="a bnf diagram for query language">A BNF diagram for query language</A></H2>
 <PRE>
@@ -192,19 +204,18 @@ Evaluates $queryString. There is an option Row in RDF::Core::Evaluator, which co
                     [&quot;Use&quot; &lt;namespaces&gt;]
   &lt;resultset&gt;   ::= &lt;elementpath&gt;{&quot;,&quot;&lt;elementpath&gt;}
   &lt;source&gt;      ::= &lt;sourcepath&gt;{&quot;,&quot;&lt;sourcepath&gt;}
-  &lt;sourcepath&gt;  ::= &lt;element&gt;[ &quot;{&quot; &lt;variable&gt; &quot;}&quot; ]
-                    [&quot;::&quot;&lt;element&gt;[ &quot;{&quot; &lt;variable&gt; &quot;}&quot; ]]
-                    {&quot;.&quot;&lt;element&gt;[ &quot;{&quot; &lt;variable&gt; [, &lt;variable&gt;]&quot;}&quot; ]} 
+  &lt;sourcepath&gt;  ::= [&lt;element&gt;[ &quot;{&quot; &lt;variable&gt; &quot;}&quot; ]&quot;::&quot;]
+                    &lt;element&gt;[ &quot;{&quot; &lt;variable&gt; &quot;}&quot; ]
+                    {&quot;-&gt;&quot;&lt;element&gt;[ &quot;{&quot; &lt;variable&gt; [, &lt;variable&gt;]&quot;}&quot; ]} 
                     [&quot;=&gt;&quot;&lt;element&gt; | &lt;expression&gt;]
   &lt;condition&gt;   ::= &lt;match&gt; | &lt;condition&gt; &lt;connection&gt; &lt;condition&gt; 
                     {&lt;connection&gt; &lt;condition&gt;} 
                     | &quot;(&quot; &lt;condition&gt; &quot;)&quot;
   &lt;namespaces&gt;  ::= &lt;name&gt; [&quot;For&quot;] &quot;[&quot;&lt;uri&gt;&quot;]&quot; { &quot;,&quot; &lt;name&gt; [for] &quot;[&quot;&lt;uri&gt;&quot;]&quot;}
   &lt;match&gt;       ::= &lt;path&gt; [&lt;relation&gt; &lt;path&gt;]
-  &lt;path&gt;        ::= &lt;classpath&gt;{&quot;.&quot;&lt;elements&gt;} | &lt;expression&gt;
-  &lt;classpath&gt;   ::= &lt;elements&gt;[&quot;::&quot;&lt;elements&gt;]
+  &lt;path&gt;        ::= [&lt;elements&gt;&quot;::&quot;]&lt;elements&gt;{&quot;-&gt;&quot;&lt;elements&gt;} | &lt;expression&gt;
   &lt;elements&gt;    ::= &lt;element&gt; | &quot;(&quot; &lt;element&gt;  {&quot;,&quot; &lt;element&gt;} &quot;)&quot;
-  &lt;elementpath&gt; ::= &lt;element&gt;{&quot;.&quot;&lt;element&gt;} | &lt;expression&gt;
+  &lt;elementpath&gt; ::= &lt;element&gt;{&quot;-&gt;&quot;&lt;element&gt;} | &lt;expression&gt;
   &lt;element&gt;     ::= &lt;variable&gt; | &lt;node&gt; | &lt;function&gt; 
   &lt;function&gt;    ::= &lt;name&gt; &quot;(&quot; &lt;elementpath&gt;[&quot;,&quot; &lt;elementpath&gt;] &quot;)&quot;
   &lt;node&gt;        ::= &quot;[&quot; &lt;uri&gt; &quot;]&quot; | &quot;[&quot; &quot;_:&quot; &lt;name&gt; &quot;]&quot; | [&lt;name&gt;&quot;:&quot;]&lt;name&gt;

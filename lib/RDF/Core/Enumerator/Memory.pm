@@ -36,10 +36,8 @@ package RDF::Core::Enumerator::Memory;
 use strict;
 require Exporter;
 
-our $VERSION = '0.02';
 our @ISA = qw(RDF::Core::Enumerator);
 
-use RDF::Core::Enumerator;
 use Carp;
 
 sub new {

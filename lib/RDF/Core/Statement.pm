@@ -38,9 +38,6 @@ use strict;
 require Exporter;
 
 use Carp;
-use RDF::Core::Resource;
-use RDF::Core::Literal;
-
 
 sub new {
     my ($pkg,$subject, $predicate, $object)=@_;
@@ -107,7 +104,7 @@ RDF::Core::Statement - RDF statement
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Statement;
+  require RDF::Core::Statement;
 
   my $subject = new RDF::Core::Resource('http://www.gingerall.cz/employees/Jim');
   my $predicate = $subject->new('http://www.gingerall.cz/rdfns#name');

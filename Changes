@@ -2,6 +2,16 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
+Version 0.20
+October 14, 2002
+----------------
+	- several bugs fixed
+        - external variables binding supported in query 
+          (prepare() and execute() methods)
+        - comments are allowed in query syntax
+	- query language syntax changes for (hopefully) better 
+	  readability
+
 Version 0.16
 May 27, 2002
 ----------------

@@ -41,7 +41,7 @@ require Exporter;
 our @ISA = qw(RDF::Core::Node);
 
 use Carp;
-use RDF::Core::Node;
+require RDF::Core::Node;
 
 sub new {
     my $pkg = shift;
@@ -66,6 +66,7 @@ sub new {
     }
     $self->{_namespace} = $namespace;
     $self->{_localValue} = $localValue;
+    $self->{_uri} = $namespace.$localValue;
 
     return $self;
 }
@@ -76,7 +77,7 @@ sub getLocalValue {
     return $_[0]->{_localValue};
 }
 sub getURI {
-    return $_[0]->{_namespace}.$_[0]->{_localValue};
+    return $_[0]->{_uri};
 }
 #Override inherited method
 sub getLabel {
@@ -86,18 +87,18 @@ sub getLabel {
 sub equals {
     my ($self, $other) = @_;
     $other = new RDF::Core::Resource($other) 
-      unless ref $other && $other->isa("RDF::Code::Resource");
+      unless ref $other && $other->isa("RDF::Core::Resource");
     return $self->getURI eq $other->getURI;
 }
 
 sub _resolveURI {
     my ($self,$URI,$ns,$lv)=@_;
-    if ($URI=~/.*[\/#:]/) {
-	$$ns = $&;
-	$$lv = $';
+    if ($URI=~/(^.*[\/#:])([a-zA-Z_][^\/#:]*$)/) {
+	$$ns = $1;
+	$$lv = $2;
     } else {
-	$$ns = '';
-	$$lv = $URI;
+	$$ns = $URI;
+	$$lv = '';
     }
 }
 
@@ -111,7 +112,7 @@ RDF::Core::Resource - a resource for RDF statement
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Resource;
+  require RDF::Core::Resource;
   my $resource=new RDF::Core::Resource("http://www.gingerall.cz/employees#","Jim");
   print $resource->getURI()."\n";
 

@@ -37,9 +37,9 @@ use strict;
 require Exporter;
 
 use Carp;
-use RDF::Core::Parser;
-use RDF::Core::Statement;
-use RDF::Core::NodeFactory;
+require RDF::Core::Parser;
+require RDF::Core::Statement;
+require RDF::Core::NodeFactory;
 
 sub new {
     my ($pkg,%options) = @_;
@@ -110,7 +110,7 @@ RDF::Core::Model::Parser - interface between model and RDF::Core::Parser
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Model::Parser;
+  require RDF::Core::Model::Parser;
   %options = (Model => $model,
               Source => $fileName,
               SourceType => 'file',

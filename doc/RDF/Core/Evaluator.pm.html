@@ -1,7 +1,7 @@
 <HTML>
 <HEAD>
 <TITLE>RDF::Core::Evaluator - gets a query object that RDF::Core::Query parsed and evaluates the query.</TITLE>
-<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
 </HEAD>
 
 <BODY>
@@ -71,7 +71,7 @@ A hash containing namespace prefixes as keys and URIs as values. See more in par
 <P></P>
 <LI><STRONG><A NAME="item_Row">Row</A></STRONG><BR>
 
-A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value.
+A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value. If Row is omitted, result is returned as a reference to array of rows
 <P></P></UL>
 </UL>
 <P>

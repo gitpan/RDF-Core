@@ -515,7 +515,7 @@ RDF::Core::Storage::DB_File - Berkeley DB 1.x implementation of RDF::Core::Stora
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Storage::DB_File;
+  require RDF::Core::Storage::DB_File;
   my $storage = new RDF::Core::Storage::DB_File(Name =>'./rdfdata',
                                                  MemLimit => 5000,
                                                 );

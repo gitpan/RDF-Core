@@ -39,11 +39,9 @@ require Exporter;
 use Carp;
 use DBI;
 
-use RDF::Core::Enumerator;
-use RDF::Core::Node;
-use RDF::Core::Resource;
-use RDF::Core::Literal;
-use RDF::Core::Statement;
+require RDF::Core::Resource;
+require RDF::Core::Literal;
+require RDF::Core::Statement;
 
 our @ISA = qw(RDF::Core::Enumerator);
 

@@ -36,40 +36,10 @@ package RDF::Core::Evaluator;
 use strict;
 require Exporter;
 
-use RDF::Core::Query;
-use RDF::Core::Function;
+use RDF::Core::Query qw(:syntax);
+use RDF::Core::Constants qw(:rdf);
+require RDF::Core::Function;
 use Carp;
-
-#query syntax elements
-
-use constant Q_QUERY        => RDF::Core::Query::Q_QUERY;
-use constant Q_RESULTSET    => RDF::Core::Query::Q_RESULTSET;
-use constant Q_SOURCE       => RDF::Core::Query::Q_SOURCE;
-use constant Q_SOURCEPATH   => RDF::Core::Query::Q_SOURCEPATH;
-use constant Q_HASTARGET    => RDF::Core::Query::Q_HASTARGET;
-use constant Q_TARGET       => RDF::Core::Query::Q_TARGET;
-use constant Q_CONDITION    => RDF::Core::Query::Q_CONDITION;
-use constant Q_NAMESPACE    => RDF::Core::Query::Q_NAMESPACE;
-use constant Q_MATCH        => RDF::Core::Query::Q_MATCH;
-use constant Q_PATH         => RDF::Core::Query::Q_PATH;
-use constant Q_CLASS        => RDF::Core::Query::Q_CLASS;
-use constant Q_BINDING      => RDF::Core::Query::Q_BINDING;
-use constant Q_ELEMENTS     => RDF::Core::Query::Q_ELEMENTS;
-use constant Q_ELEMENTPATH  => RDF::Core::Query::Q_ELEMENTPATH;
-use constant Q_ELEMENT      => RDF::Core::Query::Q_ELEMENT;
-use constant Q_FUNCTION     => RDF::Core::Query::Q_FUNCTION;
-use constant Q_NODE         => RDF::Core::Query::Q_NODE;
-use constant Q_VARIABLE     => RDF::Core::Query::Q_VARIABLE;
-use constant Q_URIDEF       => RDF::Core::Query::Q_URIDEF;
-use constant Q_NAME         => RDF::Core::Query::Q_NAME;
-use constant Q_EXPRESSION   => RDF::Core::Query::Q_EXPRESSION;
-use constant Q_CONNECTION   => RDF::Core::Query::Q_CONNECTION;
-use constant Q_RELATION     => RDF::Core::Query::Q_RELATION;
-use constant Q_OPERATION    => RDF::Core::Query::Q_OPERATION;
-use constant Q_LITERAL      => RDF::Core::Query::Q_LITERAL;
-use constant Q_URI          => RDF::Core::Query::Q_URI;
-
-use constant RDF_NS => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
 
 sub new {
     my ($pkg,%options) = @_;
@@ -85,11 +55,15 @@ sub getOptions {
 
 
 sub evaluate {
-    my ($self, $query) = @_;
+    my ($self, $query, $substitutions) = @_;
     my $rs = [[undef]];
     my $descr = {};
     $self->{_query} = $query;
+    $self->{_subst} = $substitutions;
     $self->_namespaces($query);
+    my @result;
+    my $wantResult = $self->_prepareHandler($self->getOptions->{Row},
+					    sub {push @result, \@_});
     if ($self->getOptions->{TURBO}) {
 	$self->_prepareResultSet_new($query, $rs, $descr)
     } else {
@@ -97,6 +71,7 @@ sub evaluate {
 	$self->_applyConditions($rs, $descr, $query->{+Q_CONDITION}->[0]);
 	$self->_formatResult($rs, $descr, $query);
     }
+    return $wantResult ? \@result : undef;
 }
 
 ############################################################
@@ -613,6 +588,14 @@ sub _extractElement {
 	    my $subEls = $self->_extractElement($_, $binding);
 	    push @$elements , @$subEls;
 	}
+    } elsif ($element->{type} eq Q_SUBSTITUTION) {
+	my $substName = $node->{+Q_SUBSTITUTION}->[0]->{+Q_NAME}->[0];
+	$element->{object} = $self->{_subst}{$substName} || 
+	  croak "Substitution not defined for $substName.\n";
+	$element->{binding} = $self->_extractBinding($binding);
+	$element->{type} = $element->{object}->isLiteral ? Q_LITERAL : Q_NODE;
+	$element->{name} = $element->{object}->getLabel;
+	push @$elements, $element;
     }
     return $elements;
 }
@@ -761,7 +744,7 @@ sub _analyzeCondition {
     } else {
 	#a match or disjunction
 	my @vars;
-	croak "condition not defined in analyzeCondition\n" unless defined $condition;
+	croak "Condition not defined in analyzeCondition\n" unless defined $condition;
 	$self->_findVars($condition , \@vars);
 	push @retVal,{node=>$condition, vars=>\@vars};
     }
@@ -802,7 +785,7 @@ sub _formatResult {
 	$rows = $self->_evalRow($rsRow, $descr,$query->
 				{+Q_RESULTSET}->[0]->{+Q_ELEMENTPATH});
 	foreach my $row (@$rows) {
-	    &{$self->getOptions->{Row}}(@$row);
+	    &{$self->{_handler}}(@$row);
 	}
     }
 }
@@ -1108,6 +1091,10 @@ sub _evalExpression {
     if (exists $expression->{+Q_LITERAL}) {
 	$retVal = $self->getOptions->{Factory}->
 	  newLiteral($expression->{+Q_LITERAL}->[0]);
+    } elsif (exists $expression->{+Q_SUBSTITUTION}) {
+	my $substName = $expression->{+Q_SUBSTITUTION}->[0]->{+Q_NAME}->[0];
+	$retVal = $self->{_subst}{$substName} || 
+	  croak "Substitution not defined for $substName.\n";
     } else {
 	$retVal = $self->_evalExpression($row, $descr,
 					 $expression->{+Q_EXPRESSION}->[0]);
@@ -1233,6 +1220,17 @@ sub _findVars {
     }
 }
 
+sub _prepareHandler {
+    my ($self, $handler, $default) = @_;
+    my $defaulting = 0;
+    if (defined $handler) {
+	$self->{_handler} = $handler;
+    } else {
+	$self->{_handler} = $default;
+	$defaulting = 1;
+    }
+    return $defaulting;
+}
 1;
 __END__
 
@@ -1284,7 +1282,7 @@ A hash containing namespace prefixes as keys and URIs as values. See more in par
 
 =item * Row
 
-A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value.
+A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value. If Row is omitted, result is returned as a reference to array of rows
 
 =back
 

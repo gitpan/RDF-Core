@@ -40,7 +40,7 @@ our @ISA = qw(RDF::Core::Storage);
 
 use Carp;
 use DBI qw(:sql_types);
-require RDF::Core::Statement;
+require RDF::Core::Storage;
 require RDF::Core::Enumerator::Postgres;
 
 ############################################################
@@ -374,7 +374,7 @@ RDF::Core::Storage::Postgres - PostgreSQL implementation of RDF::Core::Storage
 
 =head1 SYNOPSIS
 
-  use RDF::Core::Storage::Postgres;
+  require RDF::Core::Storage::Postgres;
   my $storage = new RDF::Core::Storage::Postgres((
 						  ConnectStr=>'dbi:Pg:dbname=rdf',
 						  DBUser=>'username',

@@ -37,6 +37,7 @@ use strict;
 require Exporter;
 
 require RDF::Core::Resource;
+use RDF::Core::Constants qw(:rdf);
 
 use Carp;
 
@@ -112,6 +113,26 @@ sub getObjects {
     return $ret;
 }
 
+sub _rdf_container_sort {
+    my ($a, $b) = @_;
+    my $aa = $1 if $a->getPredicate->getURI =~ /.*#_(\d+)/;
+    my $bb = $1 if $b->getPredicate->getURI =~ /.*#_(\d+)/;
+    return $aa <=> $bb;
+}
+
+sub getContainerObjects {
+    my ($self, $cont) = @_;
+    my $members = $self->getStmts($cont, undef, undef);
+    my $member = $members->getFirst;
+    my @arr;
+    while ($member) {
+	push @arr, $member unless $member->getPredicate->equals(RDF_TYPE);
+	$member = $members->getNext;
+    }
+    
+    return [map {$_->getObject} sort {_rdf_container_sort($a, $b)} @arr];
+}
+
 1;
 __END__
 
@@ -120,10 +141,6 @@ __END__
 RDF::Core::Model - RDF model
 
 =head1 SYNOPSIS
-
-  use RDF::Core::Model;
-  use RDF::Core::Storage::Memory;
-  use RDF::Core::Statement;
 
   my $storage = new RDF::Core::Storage::Memory;
   my $model = new RDF::Core::Model (Storage => $storage);
@@ -182,7 +199,14 @@ Retrieve matching statements. Returns RDF::Core::Enumerator object.
 
 =item * getObjects($subject, $predicate)
 
-Return a reference to an array keeping all object, that are values of specified $predicate for given $subject.
+Return a reference to an array keeping all objects, that are values of
+specified $predicate for given $subject.
+
+=item * getContainerObjects($container)
+
+Return a reference to an array keeping all objects, that are members
+of the $container. Objects are sorted.
+
 
 =back
 

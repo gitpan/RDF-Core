@@ -37,6 +37,7 @@ use strict;
 
 use RDF::Core::Constants qw(:rdf :rdfs);
 require RDF::Core::NodeFactory;
+require RDF::Core::Model;
 
 use vars qw(@ISA);
 @ISA = qw(RDF::Core::Model);
