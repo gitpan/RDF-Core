@@ -56,3 +56,4 @@ doc/RDF/Core/Storage.pm.html
 doc/RDF/Core/Storage/DB_File.pm.html
 doc/RDF/Core/Storage/Memory.pm.html
 doc/RDF/Core/Storage/Postgres.pm.html
+META.yml                                 Module meta-data (added by MakeMaker)

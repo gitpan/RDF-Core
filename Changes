@@ -1,7 +1,12 @@
 #====================================================================#
 #  The release file for RDF-Core                                     #
 #====================================================================#
-
+Version 0.31
+August 11, 2004
+----------------
+        - Typo in RDF::Core::NodeFactory fixed
+	- RDF::Core::Model::Serializer callback functions can be
+	  overriden now
 Version 0.30
 March 14, 2003
 ----------------

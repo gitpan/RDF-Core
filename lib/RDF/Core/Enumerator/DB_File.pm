@@ -36,7 +36,6 @@ package RDF::Core::Enumerator::DB_File;
 use strict;
 require Exporter;
 
-our $VERSION = '0.02';
 our @ISA = qw(RDF::Core::Enumerator);
 use Carp;
 

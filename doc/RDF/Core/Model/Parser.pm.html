@@ -1,95 +1,103 @@
-<HTML>
-<HEAD>
-<TITLE>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</TITLE>
-<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
-</HEAD>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</title>
+<link rev="made" href="mailto:root@localhost" />
+</head>
 
-<BODY>
+<body style="background-color: white">
 
-<A NAME="__index__"></A>
+<p><a name="__index__"></a></p>
 <!-- INDEX BEGIN -->
 
-<UL>
+<ul>
 
-	<LI><A HREF="#name">NAME</A></LI>
-	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
-	<LI><A HREF="#description">DESCRIPTION</A></LI>
-	<UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
 
-		<LI><A HREF="#interface">Interface</A></LI>
-	</UL>
+		<li><a href="#interface">Interface</a></li>
+	</ul>
 
-	<LI><A HREF="#license">LICENSE</A></LI>
-	<LI><A HREF="#author">AUTHOR</A></LI>
-	<LI><A HREF="#see also">SEE ALSO</A></LI>
-</UL>
+	<li><a href="#license">LICENSE</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
 <!-- INDEX END -->
 
-<HR>
-<P>
-<H1><A NAME="name">NAME</A></H1>
-<P>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</P>
-<P>
-<HR>
-<H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<PRE>
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
   require RDF::Core::Model::Parser;
   %options = (Model =&gt; $model,
               Source =&gt; $fileName,
               SourceType =&gt; 'file',
               #parserOptions
-              BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
+              BaseURI =&gt; &quot;<a href="http://www.foo.com/&quot">http://www.foo.com/&quot</a>;,
               BNodePrefix =&gt; &quot;genid&quot;
              )
   my $parser = new RDF::Core::Model::Parser(%options);
-  $parser-&gt;parse;</PRE>
-<P>
-<HR>
-<H1><A NAME="description">DESCRIPTION</A></H1>
-<P>While RDF::Core::Parser transforms RDF/XML syntax into general assertions, RDF::Core::Model::Parser defines default handler for assertion and provides methods that should conform any parsing request. That is setting options and doing the parse job. If there is need for use of another existing rdf parser or more parsers, a new parser interface should be created.</P>
-<P>
-<H2><A NAME="interface">Interface</A></H2>
-<UL>
-<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
-
+  $parser-&gt;parse;</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>While RDF::Core::Parser transforms RDF/XML syntax into general assertions, RDF::Core::Model::Parser defines default handler for assertion and provides methods that should conform any parsing request. That is setting options and doing the parse job. If there is need for use of another existing rdf parser or more parsers, a new parser interface should be created.</p>
+<p>
+</p>
+<h2><a name="interface">Interface</a></h2>
+<ul>
+<li><strong><a name="item_new"><code>new(%options)</code></a></strong><br />
+</li>
 Available options are:
-<UL>
-<LI><STRONG><A NAME="item_Model">Model</A></STRONG><BR>
-
+<ul>
+<li><strong><a name="item_model">Model</a></strong><br />
+</li>
 Where should the statements be stored in.
-<P></P>
-<LI><STRONG><A NAME="item_Source">Source</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_source">Source</a></strong><br />
+</li>
 A name of a XML file or a string containing XML.
-<P></P>
-<LI><STRONG><A NAME="item_SourceType">SourceType</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_sourcetype">SourceType</a></strong><br />
+</li>
 Contains 'string' if source is a XML string or 'file' if source is a file name.
-<P></P>
-<LI><STRONG><A NAME="item_%5BParserOptions%5D">[ParserOptions]</A></STRONG><BR>
+<p></p>
+<li><strong><a name="item__5bparseroptions_5d">[ParserOptions]</a></strong><br />
+</li>
+All other options are passed to the parser (<a href="/RDF/Core/Parser.html">the RDF::Core::Parser manpage</a>).
+<p></p></ul>
+<li><strong><a name="item_getoptions">getOptions</a></strong><br />
+</li>
+<li><strong><a name="item_setoptions"><code>setOptions(\%options)</code></a></strong><br />
+</li>
+<li><strong><a name="item_parse">parse</a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="license">LICENSE</a></h1>
+<p>This package is subject to the MPL (or the GPL alternatively).</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Ginger Alliance, <a href="mailto:rdf@gingerall.cz">rdf@gingerall.cz</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>RDF::Core::Parser, RDF::Core::Model</p>
 
-All other options are passed to the parser (<A HREF="/RDF/Core/Parser.html">the RDF::Core::Parser manpage</A>).
-<P></P></UL>
-<LI><STRONG><A NAME="item_getOptions">getOptions</A></STRONG><BR>
+</body>
 
-<LI><STRONG><A NAME="item_setOptions"><CODE>setOptions(\%options)</CODE></A></STRONG><BR>
-
-<LI><STRONG><A NAME="item_parse">parse</A></STRONG><BR>
-
-</UL>
-<P>
-<HR>
-<H1><A NAME="license">LICENSE</A></H1>
-<P>This package is subject to the MPL (or the GPL alternatively).</P>
-<P>
-<HR>
-<H1><A NAME="author">AUTHOR</A></H1>
-<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
-<P>
-<HR>
-<H1><A NAME="see also">SEE ALSO</A></H1>
-<P>RDF::Core::Parser, RDF::Core::Model</P>
-
-</BODY>
-
-</HTML>
+</html>

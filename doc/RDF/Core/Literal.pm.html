@@ -1,74 +1,82 @@
-<HTML>
-<HEAD>
-<TITLE>RDF::Core::Literal - a literal value for RDF statement</TITLE>
-<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
-</HEAD>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>RDF::Core::Literal - a literal value for RDF statement</title>
+<link rev="made" href="mailto:root@localhost" />
+</head>
 
-<BODY>
+<body style="background-color: white">
 
-<A NAME="__index__"></A>
+<p><a name="__index__"></a></p>
 <!-- INDEX BEGIN -->
 
-<UL>
+<ul>
 
-	<LI><A HREF="#name">NAME</A></LI>
-	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
-	<LI><A HREF="#description">DESCRIPTION</A></LI>
-	<UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
 
-		<LI><A HREF="#interface">Interface</A></LI>
-	</UL>
+		<li><a href="#interface">Interface</a></li>
+	</ul>
 
-	<LI><A HREF="#license">LICENSE</A></LI>
-	<LI><A HREF="#author">AUTHOR</A></LI>
-	<LI><A HREF="#see also">SEE ALSO</A></LI>
-</UL>
+	<li><a href="#license">LICENSE</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
 <!-- INDEX END -->
 
-<HR>
-<P>
-<H1><A NAME="name">NAME</A></H1>
-<P>RDF::Core::Literal - a literal value for RDF statement</P>
-<P>
-<HR>
-<H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<PRE>
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>RDF::Core::Literal - a literal value for RDF statement</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
   require RDF::Core::Literal;
   my $literal=new RDF::Core::Literal(&quot;Jim Brown&quot;);
-  print $literal-&gt;getValue().&quot;\n&quot;;</PRE>
-<P>
-<HR>
-<H1><A NAME="description">DESCRIPTION</A></H1>
-<P>Is inherited from RDF::Core::Node, you can specify it's language and datatype URI.</P>
-<P>
-<H2><A NAME="interface">Interface</A></H2>
-<UL>
-<LI><STRONG><A NAME="item_new"><CODE>new($value)</CODE></A></STRONG><BR>
+  print $literal-&gt;getValue().&quot;\n&quot;;</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Is inherited from RDF::Core::Node, you can specify it's language and datatype URI.</p>
+<p>
+</p>
+<h2><a name="interface">Interface</a></h2>
+<ul>
+<li><strong><a name="item_new"><code>new($value)</code></a></strong><br />
+</li>
+<li><strong>new($value, $language)</strong><br />
+</li>
+<li><strong>new($value, $language, $datatype)</strong><br />
+</li>
+<li><strong><a name="item_getvalue"><code>getValue()</code></a></strong><br />
+</li>
+<li><strong><a name="item_getlang"><code>getLang()</code></a></strong><br />
+</li>
+<li><strong><a name="item_getdatatype"><code>getDatatype()</code></a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="license">LICENSE</a></h1>
+<p>This package is subject to the MPL (or the GPL alternatively).</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Ginger Alliance, <a href="mailto:rdf@gingerall.cz">rdf@gingerall.cz</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>perl(1).</p>
 
-<LI><STRONG>new($value, $language)</STRONG><BR>
+</body>
 
-<LI><STRONG>new($value, $language, $datatype)</STRONG><BR>
-
-<LI><STRONG><A NAME="item_getValue"><CODE>getValue()</CODE></A></STRONG><BR>
-
-<LI><STRONG><A NAME="item_getLang"><CODE>getLang()</CODE></A></STRONG><BR>
-
-<LI><STRONG><A NAME="item_getDatatype"><CODE>getDatatype()</CODE></A></STRONG><BR>
-
-</UL>
-<P>
-<HR>
-<H1><A NAME="license">LICENSE</A></H1>
-<P>This package is subject to the MPL (or the GPL alternatively).</P>
-<P>
-<HR>
-<H1><A NAME="author">AUTHOR</A></H1>
-<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
-<P>
-<HR>
-<H1><A NAME="see also">SEE ALSO</A></H1>
-<P>perl(1).</P>
-
-</BODY>
-
-</HTML>
+</html>

@@ -1,116 +1,125 @@
-<HTML>
-<HEAD>
-<TITLE>RDF::Core::Parser - RDF Parser</TITLE>
-<LINK REV="made" HREF="mailto:bhcompile@daffy.perf.redhat.com">
-</HEAD>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>RDF::Core::Parser - RDF Parser</title>
+<link rev="made" href="mailto:root@localhost" />
+</head>
 
-<BODY>
+<body style="background-color: white">
 
-<A NAME="__index__"></A>
+<p><a name="__index__"></a></p>
 <!-- INDEX BEGIN -->
 
-<UL>
+<ul>
 
-	<LI><A HREF="#name">NAME</A></LI>
-	<LI><A HREF="#description">DESCRIPTION</A></LI>
-	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
-	<UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<ul>
 
-		<LI><A HREF="#interface">Interface</A></LI>
-		<LI><A HREF="#assert handler">Assert handler</A></LI>
-	</UL>
+		<li><a href="#interface">Interface</a></li>
+		<li><a href="#assert_handler">Assert handler</a></li>
+	</ul>
 
-	<LI><A HREF="#license">LICENSE</A></LI>
-	<LI><A HREF="#author">AUTHOR</A></LI>
-	<LI><A HREF="#see also">SEE ALSO</A></LI>
-</UL>
+	<li><a href="#license">LICENSE</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
 <!-- INDEX END -->
 
-<HR>
-<P>
-<H1><A NAME="name">NAME</A></H1>
-<P>RDF::Core::Parser - RDF Parser</P>
-<P>
-<HR>
-<H1><A NAME="description">DESCRIPTION</A></H1>
-<P>A module for parsing XML documents containing RDF data. It's based on XML::Parser. Parser goes through XML and calls what is referenced in Assert option for each statement found.</P>
-<P>
-<HR>
-<H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<PRE>
-  require RDF::Core::Parser;</PRE>
-<PRE>
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>RDF::Core::Parser - RDF Parser</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>A module for parsing XML documents containing RDF data. It's based on XML::Parser. Parser goes through XML and calls what is referenced in Assert option for each statement found.</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
+  require RDF::Core::Parser;</pre>
+<pre>
   my %options = (Assert =&gt; \&amp;handleAssert,
-                 BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
+                 BaseURI =&gt; &quot;<a href="http://www.foo.com/&quot">http://www.foo.com/&quot</a>;,
                  BNodePrefix =&gt; &quot;genid&quot;
                 );
   my $parser = new RDF::Core::Parser(%options);
   $parser-&gt;parseFile('./rdfFile.xml');
   #or
-  $parser-&gt;parse($rdfString);</PRE>
-<P>
-<H2><A NAME="interface">Interface</A></H2>
-<UL>
-<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
-
+  $parser-&gt;parse($rdfString);</pre>
+<p>
+</p>
+<h2><a name="interface">Interface</a></h2>
+<ul>
+<li><strong><a name="item_new"><code>new(%options)</code></a></strong><br />
+</li>
 Available options are
-<UL>
-<LI><STRONG><A NAME="item_Assert">Assert</A></STRONG><BR>
-
+<ul>
+<li><strong><a name="item_assert">Assert</a></strong><br />
+</li>
 A reference to a subroutine, that is called for every assertion that parser generates.
-<P></P>
-<LI><STRONG><A NAME="item_BaseURI">BaseURI</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_baseuri">BaseURI</a></strong><br />
+</li>
 A base URI of parsed document. It will be used to resolve relative URI references.
-<P></P>
-<LI><STRONG><A NAME="item_BNodePrefix">BNodePrefix</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_bnodeprefix">BNodePrefix</a></strong><br />
+</li>
 Blank node identifier is generated as ``_:'' concatenated with BNodePrefix value concatenated with counter number. Default BnodePrefix is ``a''.
-<P></P>
-<LI><STRONG><A NAME="item_InlineURI">InlineURI</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_inlineuri">InlineURI</a></strong><br />
+</li>
 Deprecated.
-<P></P></UL>
-<LI><STRONG><A NAME="item_parse"><CODE>parse($string)</CODE></A></STRONG><BR>
-
-<LI><STRONG><A NAME="item_parseFile"><CODE>parseFile($fileName)</CODE></A></STRONG><BR>
-
-</UL>
-<P>
-<H2><A NAME="assert handler">Assert handler</A></H2>
-<P>Assert handler is called with key value pairs in a parameters array.</P>
-<P>Keys are:</P>
-<UL>
-<LI><STRONG><A NAME="item_subject_ns%2C_subject_name%2C_subject_uri">subject_ns, subject_name, subject_uri</A></STRONG><BR>
-
+<p></p></ul>
+<li><strong><a name="item_parse"><code>parse($string)</code></a></strong><br />
+</li>
+<li><strong><a name="item_parsefile"><code>parseFile($fileName)</code></a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="assert_handler">Assert handler</a></h2>
+<p>Assert handler is called with key value pairs in a parameters array.</p>
+<p>Keys are:</p>
+<ul>
+<li><strong><a name="item_subject_ns_2c_subject_name_2c_subject_uri">subject_ns, subject_name, subject_uri</a></strong><br />
+</li>
 namespace, local value and URI of subject
-<P></P>
-<LI><STRONG><A NAME="item_predicate_ns%2C_predicate_name%2C_predicate_uri">predicate_ns, predicate_name, predicate_uri</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_predicate_ns_2c_predicate_name_2c_predicate_uri">predicate_ns, predicate_name, predicate_uri</a></strong><br />
+</li>
 namespace, local value and URI of predicate
-<P></P>
-<LI><STRONG><A NAME="item_object_ns%2C_object_name%2C_object_uri">object_ns, object_name, object_uri</A></STRONG><BR>
-
+<p></p>
+<li><strong><a name="item_object_ns_2c_object_name_2c_object_uri">object_ns, object_name, object_uri</a></strong><br />
+</li>
 namespace, local value and URI of object, if the object is a resource
-<P>or</P>
-<P></P>
-<LI><STRONG><A NAME="item_object_literal%2C_object_lang%2C_object_datatype">object_literal, object_lang, object_datatype</A></STRONG><BR>
-
+<p>or</p>
+<p></p>
+<li><strong><a name="item_object_literal_2c_object_lang_2c_object_datatype">object_literal, object_lang, object_datatype</a></strong><br />
+</li>
 object value for literal, it's language and datatype
-<P></P></UL>
-<P>
-<HR>
-<H1><A NAME="license">LICENSE</A></H1>
-<P>This package is subject to the MPL (or the GPL alternatively).</P>
-<P>
-<HR>
-<H1><A NAME="author">AUTHOR</A></H1>
-<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
-<P>
-<HR>
-<H1><A NAME="see also">SEE ALSO</A></H1>
-<P>RDF::Core::Model::Parser</P>
+<p></p></ul>
+<p>
+</p>
+<hr />
+<h1><a name="license">LICENSE</a></h1>
+<p>This package is subject to the MPL (or the GPL alternatively).</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Ginger Alliance, <a href="mailto:rdf@gingerall.cz">rdf@gingerall.cz</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>RDF::Core::Model::Parser</p>
 
-</BODY>
+</body>
 
-</HTML>
+</html>

@@ -104,7 +104,7 @@ sub _generateURI {
     $self->getOptions->{GenCounter} = 0
       unless defined $self->getOptions->{GenCounter};
     my $bNode = $self->getOptions->{GenPrefix}.
-      $self->getOptions->{_GenCounter}++;
+      $self->getOptions->{GenCounter}++;
     return $bNode
 }
 1;

@@ -300,6 +300,7 @@ RDF::Core::Serializer - produce XML code for RDF model
   my %options = (getSubjects => \&getSubjectsHandler,
                  getNamespaces => \&getNamespacesHandler,
                  getStatements => \&getStatementsHandler,
+                 countStatements => \&countStatementsHandler,
                  existsStatement => \&existsStatementHandler,
                  BaseURI => 'http://www.foo.com/',
                 );
@@ -351,7 +352,7 @@ Deprecated.
 
 =item * InlinePrefix
 
-If an anonymous description is to be generated and need is to give it ID attribute, the attribute will be InlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is 'genid'. This is wrong practice and will be replaced by rdf:nodeID usage in next versions. Warning is generated when this occurs.
+If an anonymous description is to be generated and need is to give it ID attribute, the attribute will be InlinePrefix concatenated with unique number. Unique is meant in the scope of the document. Default prefix is 'genid'. This is wrong practice and will be replaced by rdf:nodeID usage in next versions. Warning is generated when this occurs.
 
 =back
 
@@ -369,7 +370,7 @@ B<getNamespaces> should return a hash reference where keys are namespaces and va
 
 B<getStatements($subject, $predicate, $object)> should return all statements that match given mask. That is the statements' subject is equal to $subject or $subject is not defined and the same for predicate and subject. Return value is a reference to RDF::Core::Enumerator object.
 
-B<getStatements($subject, $predicate, $object)> should return number of statements that match given mask.
+B<countStatements($subject, $predicate, $object)> should return number of statements that match given mask.
 
 B<existsStatement($subject, $predicate, $object)> should return true if exists statement that matches given mask and false otherwise.
 

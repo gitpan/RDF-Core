@@ -68,6 +68,7 @@ sub serialize {
     my $serializer = new RDF::Core::Serializer
       (getSubjects => 
        #once you iterate through statements, store both subjects and namespaces
+       $self->getOptions->{getSubjects} ||
        sub {
 	   my $subjects = {};
 	   my $namespaces = {};
@@ -95,6 +96,7 @@ sub serialize {
        },
        getNamespaces => 
        #once you iterate through statements, store both subjects and namespaces
+       $self->getOptions->{getNamespaces} ||
        sub {
 	   my $subjects = {};
 	   my $namespaces = {};
@@ -121,6 +123,7 @@ sub serialize {
 	   return $namespaces;
        },
        getStatements => 
+       $self->getOptions->{getStatements} ||
        sub {
 	   my ($subject, $predicate, $object) = @_;
 	   my $enumerator = $self->getOptions->{Model}->
@@ -128,12 +131,14 @@ sub serialize {
 	   return $enumerator;
        },
        countStatements => 
+       $self->getOptions->{countStatements} ||
        sub {
 	   my ($subject, $predicate, $object) = @_;
 	   return $self->getOptions->{Model}->
 	     countStmts($subject,$predicate,$object);
        },
        existsStatement => 
+       $self->getOptions->{existsStatement} ||
        sub {
 	   my ($subject, $predicate, $object) = @_;
 	   return $self->getOptions->{Model}->
@@ -180,7 +185,7 @@ A Model::Serializer object sets handlers for serializer, connecting the serializ
 
 =item * new(%options)
 
-Avaliable options are:
+Available options are:
 
 =over 4
 
@@ -191,6 +196,10 @@ A reference to RDF::Core::Model object - the RDF model I want to serialize.
 =item * Output, BaseURI
 
 See RDF::Core::Serializer options
+
+=item * getSubjects, getNamespaces, getStatements, countStatements, existsStatement
+
+While the module provides defaults for each handler, you can override any of them. See RDF::Core::Serializer for details.
 
 =back
 
