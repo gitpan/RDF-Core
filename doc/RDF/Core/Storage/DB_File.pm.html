@@ -1,0 +1,86 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Storage::DB_File - Berkeley DB 1.x implementation of RDF::Core::Storage</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Storage::DB_File - Berkeley DB 1.x implementation of RDF::Core::Storage</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Storage::DB_File;
+  my $storage = new RDF::Core::Storage::DB_File(Name =&gt;'./rdfdata',
+                                                 MemLimit =&gt; 5000,
+                                                );
+  my $model = new RDF::Core::Model (Storage =&gt; $storage);</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>The storage is based on DB_File module and is using tie mechanism to access data.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_Name">Name</A></STRONG><BR>
+
+The name of the storage. Several files will be created beginning with the Name.
+If Name is undef, storage is held in memory. Default value is null.
+<P></P>
+<LI><STRONG><A NAME="item_Flags%2C_Mode">Flags, Mode</A></STRONG><BR>
+
+The options is passed to DB_File module when tying variables. Default values are O_CREAT|O_RDWR for Flags and 0666 for Mode.
+<P></P>
+<LI><STRONG><A NAME="item_MemLimit">MemLimit</A></STRONG><BR>
+
+When statements are retrieved from the storage, they are passed as an in-memory implementation of enumerator RDF::Core::Enumerator::Memory or less-in-memory implementation RDF::Core::Enumerator::DB_File. Setting MemLimit to non-zero says that storage should never return Memory enumerator for number of statements larger then MemLimit. As the decision of what to return is made before the accurate count of statements returned is known, DB_File enumerator may be returned even if MemLimit is not exceeded.
+<P></P>
+<LI><STRONG><A NAME="item_Sync">Sync</A></STRONG><BR>
+
+A number of write operations to process before synchronizing storage data cache with disk. 0 means don't force synchronizing.
+<P></P></UL>
+</UL>
+<P>The rest of the interface is described in RDF::Core::Storage.</P>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>DB_File, RDF::Core::Storage, RDF::Core::Enumerator::Memory, RDF::Core::Enumerator::DB_File, RDF::Core::Model</P>
+
+</BODY>
+
+</HTML>

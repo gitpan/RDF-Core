@@ -1,0 +1,117 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Serializer - produce XML code for RDF model</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+		<LI><A HREF="#handlers">Handlers</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Serializer - produce XML code for RDF model</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Serializer;</PRE>
+<PRE>
+  my %options = (getSubjects =&gt; \&amp;getSubjectsHandler,
+                 getNamespaces =&gt; \&amp;getNamespacesHandler,
+                 getStatements =&gt; \&amp;getStatementsHandler,
+                 existsStatement =&gt; \&amp;existsStatementHandler,
+                 BaseURI =&gt; '<A HREF="http://www.foo.com/">http://www.foo.com/</A>',
+                );
+  my $serializer = new RDF::Core::Serializer(%options);
+  $serializer-&gt;serialize;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>Serializer takes RDF data provided by handlers and generates a XML document. Besides the trivial job of generating one description for one statement the serializer attempts to group statements with common subject into one description and makes referenced descriptions nested into referencing ones. Using baseURI and InlineURI options helps to keep relative and anonymous resources instead of making them absolute and persistent.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_getSubjects">getSubjects</A></STRONG><BR>
+
+A reference to a subroutine that provides all distinct subjects in serialized model.
+<P></P>
+<LI><STRONG><A NAME="item_getNamespaces">getNamespaces</A></STRONG><BR>
+
+A reference to a subroutine that provides all predicates' namespaces.
+<P></P>
+<LI><STRONG><A NAME="item_getStatements">getStatements($subject, $predicate, $object)</A></STRONG><BR>
+
+A reference to a subroutine that provides all statements conforming given mask.
+<P></P>
+<LI><STRONG><A NAME="item_existsStatement">existsStatement($subject, $predicate, $object)</A></STRONG><BR>
+
+A reference to a subroutine that returns true if a statement exists conforming the mask.
+<P></P>
+<LI><STRONG><A NAME="item_Output">Output</A></STRONG><BR>
+
+Output can be assigned a filehandle reference (a reference to a typeglob or FileHandle object), or a reference to a scalar variable. If a filehendle is set, serializer assumes it's open and valid, just prints there and doesn't close it. If a variable is set, XML is appended to it.
+Serializer writes to STDOUT with default settings.
+<P></P>
+<LI><STRONG><A NAME="item_BaseURI">BaseURI</A></STRONG><BR>
+
+A base URI of a document that is created. If a subject of a statement matches the URI, about attribute with relative URI is generated. No ID attributes are produced until corresponding RDF issue is closed. (See rdfms-difference-between-ID-and-about at <A HREF="http://www.w3.org/2000/03/rdf-tracking/)">http://www.w3.org/2000/03/rdf-tracking/)</A>
+<P></P>
+<LI><STRONG><A NAME="item_InlineURI">InlineURI</A></STRONG><BR>
+
+If a subject matches an InlineURI option, serializer attempts to generate an anonymous description. (The description has not about neither ID attribute.) If it's not possible (imagine an anonymous resource which points to itself, or some circularly dependent anonymous resources etc.), an ID attribute is generated using InlinePrefix and a counter. The default value is '_:'.
+<P></P>
+<LI><STRONG><A NAME="item_InlinePrefix">InlinePrefix</A></STRONG><BR>
+
+If an anonymous description is to be generated and need is to give it ID attribute (see InlineURI), the attribute will be InlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is '_:a'.
+<P></P></UL>
+<LI><STRONG><A NAME="item_serialize">serialize</A></STRONG><BR>
+
+Does the job.
+<P></P></UL>
+<P>
+<H2><A NAME="handlers">Handlers</A></H2>
+<P><STRONG>getSubjects</STRONG> should return an array of references, each reference pointing to an array of one item ($subject), where $subject is a reference to RDF::Core::Resource. (I.e. <CODE>$subject = $returnValue-&gt;[$someElementOfArray]-&gt;[0]</CODE>)</P>
+<P><STRONG>getNamespaces</STRONG> should return a hash reference where keys are namespaces and values are namespace prefixes. There must be a rdf namespace present with value 'rdf'</P>
+<P><STRONG>getStatements($subject, $predicate, $object)</STRONG> should return all statements that match given mask. That is the statements' subject is equal to $subject or $subject is not defined and the same for predicate and subject. Return value is a reference to RDF::Core::Enumerator object.</P>
+<P><STRONG>existsStatement($subject, $predicate, $object)</STRONG> should return true if exists statement that matches given mask and false otherwise.</P>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<PRE>
+ FileHandle, RDF::Core::Model::Serializer, RDF::Core::Enumerator</PRE>
+
+</BODY>
+
+</HTML>

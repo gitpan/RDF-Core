@@ -1,0 +1,84 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Statement - RDF statement</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Statement - RDF statement</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Statement;</PRE>
+<PRE>
+  my $subject = new RDF::Core::Resource('<A HREF="http://www.gingerall.cz/employees/Jim">http://www.gingerall.cz/employees/Jim</A>');
+  my $predicate = $subject-&gt;new('<A HREF="http://www.gingerall.cz/rdfns#name">http://www.gingerall.cz/rdfns#name</A>');
+  my $object = new RDF::Core::Literal('Jim Brown');</PRE>
+<PRE>
+  my $statement = new RDF::Core::Statement($subject, $predicate, $object);</PRE>
+<PRE>
+  print $statement-&gt;getObject-&gt;getLabel.&quot;\n&quot;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new">new($subject, $predicate, $object)</A></STRONG><BR>
+
+Variables $subject and $predicate are resources, $object can be resource or literal
+<P></P>
+<LI><STRONG><A NAME="item_getSubject">getSubject</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_getPredicate">getPredicate</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_getObject">getObject</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_getLabel">getLabel</A></STRONG><BR>
+
+returns a content of statement in n-triple format.
+<P></P>
+<LI><STRONG><A NAME="item_clone">clone</A></STRONG><BR>
+
+returns copy of statement
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Resource, RDF::Core::Literal</P>
+
+</BODY>
+
+</HTML>

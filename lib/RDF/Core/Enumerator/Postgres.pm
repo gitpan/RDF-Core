@@ -31,76 +31,80 @@
 # GPL.
 # 
 
-package RDF::Core;
+package RDF::Core::Enumerator::Postgres;
 
 use strict;
-
 require Exporter;
 
-our $VERSION = '0.16';
+use Carp;
+use DBI;
+
+use RDF::Core::Enumerator;
+use RDF::Core::Node;
+use RDF::Core::Resource;
+use RDF::Core::Literal;
+use RDF::Core::Statement;
+
+our @ISA = qw(RDF::Core::Enumerator);
+
+sub new {
+    my ($class, %params) = @_;
+    $class = ref $class || $class;
+    my $self = { 
+		cursor => $params{Cursor},
+	       };
+    bless $self, $class;
+    return $self;
+}
+
+sub getFirst {
+    my $self = shift;
+    carp 'Warning: RDF::Core::Enumerator->getFirst() could not be implemented for database cursor. This method returns getNext.';
+    return $self->getNext;
+}
+
+sub getNext {
+    my $self = shift;
+    my $rval;
+    my @row = $self->{cursor}->fetchrow_array;
+    if (@row) {
+	my $subject = new RDF::Core::Resource($row[0],$row[1]);
+	my $predicate = new RDF::Core::Resource($row[2],$row[3]);
+	my $object;
+	if ($row[4]) {
+	    $object = new RDF::Core::Resource($row[4],$row[5]);
+	} else {
+	    $object = new RDF::Core::Literal($row[6]);	
+	};
+	$rval = new RDF::Core::Statement($subject, $predicate, $object);
+    }
+    return $rval;
+}
+
+sub close {
+    my $self = shift;
+    $self->{cursor}->finish() if $self->{cursor};
+}
+
+sub DESTROY {
+    my $self = shift;
+    $self->close();
+}
 
 1;
 __END__
 
 =head1 NAME
 
-RDF::Core - An object oriented Perl modules for handling tasks related to RDF.
+RDF::Core::Enumerator::Postgres 
 
 =head1 SYNOPSIS
 
-  use RDF::Core;
+ To be done
 
 =head1 DESCRIPTION
 
-RDF::Core has these parts:
-
-=over 4
-
-=item * B<RDF::Core::Model>
-
-Model provides interface to store RDF statements, ask about them and retrieve them back.
-
-=item * B<RDF::Core::Constants>
-
-Defines usefule constants for the RDF processing like namespaces etc.
-
-=item * B<RDF::Core::Parser>
-
-Generates statements from an RDF XML document.
-
-=item * B<RDF::Core::Model::Parser>
-
-Model::Parser is a simple interface object to a parser. It's purpose is to provide a prototype of object accomodating any other parser.
-
-=item * B<RDF::Core::Serializer>
-
-Serializes RDF Model into XML.
-
-=item * B<RDF::Core::Model::Serializer>
-
-Model::Serializer is an interface object for Serializer.
-
-=item * B<RDF::Core::Storage>
-
-An object for storing statements. There are several implementations of Storage - in memory, in a BerkeleyDB 1.x (DB_File) files and PostgreSQL database.
-
-=item * B<RDF::Core::Enumerator>
-
-Enumerator is a result set of statements retrieved from Model
-
-=item * B<RDF::Core::Query>
-
-An implementation of query language.
-
-=item * B<RDF::Core::Schema>
-
-The RDF Schema utilities.
-
-=item * B<Basic elements>
-
-RDF::Core::Statement, RDF::Core::Resource, RDF::Core::Literal, RDF::Core::Node
-
-=back
+To be done
 
 =head1 LICENSE
 
@@ -112,6 +116,6 @@ Ginger Alliance, rdf@gingerall.cz
 
 =head1 SEE ALSO
 
-perl(1).
+RDF::Core::Storage, RDF::Core::Model
 
 =cut

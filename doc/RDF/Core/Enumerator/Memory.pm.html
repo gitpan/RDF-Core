@@ -1,0 +1,60 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Enumerator::Memory - Enumerator in memory</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Enumerator::Memory - Enumerator in memory</P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>Enumerator is a set of statements retrieved from a model.
+When Memory enumerator is created, it makes in-memory copy of all data it helds, so it's independent on adding / removing statements.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(\@data)</CODE></A></STRONG><BR>
+
+@data is an array of RDF::Core::Statement objects.
+<P></P></UL>
+<P>The rest of the interface is described in RDF::Core::Enumerator.</P>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<PRE>
+  RDF::Core::Enumerator, RDF::Core::Model, RDF::Core::Storage</PRE>
+
+</BODY>
+
+</HTML>

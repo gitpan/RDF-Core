@@ -82,6 +82,14 @@ sub getURI {
 sub getLabel {
     return $_[0]->getURI;
 }
+
+sub equals {
+    my ($self, $other) = @_;
+    $other = new RDF::Core::Resource($other) 
+      unless ref $other && $other->isa("RDF::Code::Resource");
+    return $self->getURI eq $other->getURI;
+}
+
 sub _resolveURI {
     my ($self,$URI,$ns,$lv)=@_;
     if ($URI=~/.*[\/#:]/) {
@@ -127,6 +135,8 @@ It just knows it's URI. If it's created with two parameters (namespace and local
 =item * getNamespace
 
 =item * getLocalValue
+
+=item * equals($other)
 
 =back
 

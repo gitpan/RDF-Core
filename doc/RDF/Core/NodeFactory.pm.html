@@ -1,0 +1,92 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::NodeFactory - produces literals and resources, generates labels for anonymous resources</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::NodeFactory - produces literals and resources, generates labels for anonymous resources</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::NodeFactory;
+  my $factory = new RDF::Core::NodeFactory(BaseURI=&gt;'<A HREF="http://www.foo.org/">http://www.foo.org/</A>');
+  my $resource = $factory-&gt;newResource('<A HREF="http://www.foo.org/pages">http://www.foo.org/pages</A>');</PRE>
+<PRE>
+  #get the same uri:
+  my $absolutizedResource = $factory-&gt;newResource('/pages');</PRE>
+<PRE>
+  #anonymous resource
+  my $generatedResource = $factory-&gt;newResource;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>NodeFactory generates RDF graph nodes - literals and resources. The resources' URIs are expanded against base uri (BaseURI option) to their absolute forms using URI module. NodeFactory can generate unique 'anonymous' resources.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_BaseURI">BaseURI</A></STRONG><BR>
+
+When NodeFactory generates a resource from relative URI, BaseURI is used to obtain absolute URI. BaseURI must be absolute. Default value is 'uri:'.
+<P></P>
+<LI><STRONG><A NAME="item_GenPrefix%2C_GenCounter">GenPrefix, GenCounter</A></STRONG><BR>
+
+Is used to generate bNode label (an anonymous resource). Default values are '_:a' for GenPrefix and 0 for GenCounter. Resulting label is concatenation of GenPrefix and GenCounter.
+<P></P></UL>
+<LI><STRONG><A NAME="item_getOptions">getOptions</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_setOptions"><CODE>setOptions(\%options)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_newLiteral"><CODE>newLiteral($value)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_newResource">newResource($namespace, $localValue)</A></STRONG><BR>
+
+<LI><STRONG><CODE>newResource($uri)</CODE></STRONG><BR>
+
+<LI><STRONG>newResource</STRONG><BR>
+
+</UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>URI, RDF::Core::Resource, RDF::Core::Literal</P>
+
+</BODY>
+
+</HTML>

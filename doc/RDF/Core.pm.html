@@ -1,0 +1,96 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core - An object oriented Perl modules for handling tasks related to RDF.</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core - An object oriented Perl modules for handling tasks related to RDF.</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>RDF::Core has these parts:</P>
+<UL>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AModel"><STRONG>RDF::Core::Model</STRONG></A></STRONG><BR>
+
+Model provides interface to store RDF statements, ask about them and retrieve them back.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AConstants"><STRONG>RDF::Core::Constants</STRONG></A></STRONG><BR>
+
+Defines usefule constants for the RDF processing like namespaces etc.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AParser"><STRONG>RDF::Core::Parser</STRONG></A></STRONG><BR>
+
+Generates statements from an RDF XML document.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AModel%3A%3AParser"><STRONG>RDF::Core::Model::Parser</STRONG></A></STRONG><BR>
+
+Model::Parser is a simple interface object to a parser. It's purpose is to provide a prototype of object accomodating any other parser.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3ASerializer"><STRONG>RDF::Core::Serializer</STRONG></A></STRONG><BR>
+
+Serializes RDF Model into XML.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AModel%3A%3ASerializer"><STRONG>RDF::Core::Model::Serializer</STRONG></A></STRONG><BR>
+
+Model::Serializer is an interface object for Serializer.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AStorage"><STRONG>RDF::Core::Storage</STRONG></A></STRONG><BR>
+
+An object for storing statements. There are several implementations of Storage - in memory, in a BerkeleyDB 1.x (DB_File) files and PostgreSQL database.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AEnumerator"><STRONG>RDF::Core::Enumerator</STRONG></A></STRONG><BR>
+
+Enumerator is a result set of statements retrieved from Model
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3AQuery"><STRONG>RDF::Core::Query</STRONG></A></STRONG><BR>
+
+An implementation of query language.
+<P></P>
+<LI><STRONG><A NAME="item_RDF%3A%3ACore%3A%3ASchema"><STRONG>RDF::Core::Schema</STRONG></A></STRONG><BR>
+
+The RDF Schema utilities.
+<P></P>
+<LI><STRONG><A NAME="item_Basic_elements"><STRONG>Basic elements</STRONG></A></STRONG><BR>
+
+RDF::Core::Statement, RDF::Core::Resource, RDF::Core::Literal, RDF::Core::Node
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>perl(1).</P>
+
+</BODY>
+
+</HTML>

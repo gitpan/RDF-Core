@@ -1,0 +1,108 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Model - RDF model</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Model - RDF model</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Model;
+  use RDF::Core::Storage::Memory;
+  use RDF::Core::Statement;</PRE>
+<PRE>
+  my $storage = new RDF::Core::Storage::Memory;
+  my $model = new RDF::Core::Model (Storage =&gt; $storage);
+  my $subject = new RDF::Core::Resource('<A HREF="http://www.gingerall.cz/employees/Jim">http://www.gingerall.cz/employees/Jim</A>');
+  my $predicate = $subject-&gt;new('<A HREF="http://www.gingerall.cz/rdfns#name">http://www.gingerall.cz/rdfns#name</A>');
+  my $object = new RDF::Core::Literal('Jim Brown');
+  my $statement = new RDF::Core::Statement($subject, $predicate, $object);</PRE>
+<PRE>
+  $model-&gt;addStmt($statement);</PRE>
+<PRE>
+  print &quot;Model contains &quot;.$model-&gt;countStmts.&quot;statement(s).\n&quot;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>Model provides interface to store RDF statements, ask about them and retrieve them back.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+$options is a hash reference, available options are
+<UL>
+<LI><STRONG><A NAME="item_Storage">Storage</A></STRONG><BR>
+
+a reference to a RDF::Core::Storage implementation
+<P></P></UL>
+<LI><STRONG><A NAME="item_getOptions">getOptions</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_setOptions"><CODE>setOptions(\%options)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_addStmt"><CODE>addStmt($statement)</CODE></A></STRONG><BR>
+
+Add RDF::Core::Statement instance to Model, unless it already exists there.
+<P></P>
+<LI><STRONG><A NAME="item_removeStmt"><CODE>removeStmt($statement)</CODE></A></STRONG><BR>
+
+Remove statement from Model, if it's there.
+<P></P>
+<LI><STRONG><A NAME="item_existsStmt"><CODE>existsStmt($subject,$predicate,$object)</CODE></A></STRONG><BR>
+
+Check if statement exists, that matches given mask. Parameters can be undefined, every value matches undefined parameter.
+<P></P>
+<LI><STRONG><A NAME="item_countStmts"><CODE>countStmts($subject,$predicate,$object)</CODE></A></STRONG><BR>
+
+Count matching statements.
+<P></P>
+<LI><STRONG><A NAME="item_getStmts"><CODE>getStmts($subject,$predicate,$object)</CODE></A></STRONG><BR>
+
+Retrieve matching statements. Returns RDF::Core::Enumerator object.
+<P></P>
+<LI><STRONG><A NAME="item_getObjects">getObjects($subject, $predicate)</A></STRONG><BR>
+
+Return a reference to an array keeping all object, that are values of specified $predicate for given $subject.
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Statement, RDF::Core::Storage, RDF::Core::Serializer, RDF::Core::Parser, RDF::Core::Enumerator</P>
+
+</BODY>
+
+</HTML>

@@ -2,6 +2,18 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
+Version 0.16
+May 27, 2002
+----------------
+	- a second variable binding is added to query language (binds 
+	  variable to property itself instead of property value)
+	- member() - of container - function added to query language 
+	  functions
+	- a method "equals" is added to RDF::Core::Resource
+	- a new module Schema is added, which provides access to RDF 
+	  Schema
+	- query tokenizer bug corrected (bug 854)
+
 Version 0.15
 April 16, 2002
 ----------------

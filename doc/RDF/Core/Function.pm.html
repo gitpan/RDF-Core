@@ -1,0 +1,109 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Function - a package of functions for query language.</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+		<LI><A HREF="#functions implemented">Functions implemented</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Function - a package of functions for query language.</P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>When there is a function found while evaluating query, its parameters are evaluated and passed to RDF::Core::Function apropriate piece of code. The code reference is obtained in a hash returned by <A HREF="#item_getFunctions"><CODE>getFunctions()</CODE></A> call. Each function accepts RDF::Core::Literal or RDF::Core::Resource objects as paramaters and returns a tuple of arrays (array of two array references). The first references to an array of function results - Resource or Literal objects, the second one references to an array of predicates that could be used instead of the function. This is not always applicable, so the second array can be empty.
+For example, a function call:</P>
+<PRE>
+  someBag.member()</PRE>
+<P>returns ([uri://uri-of-the-first-member,....],[rdf:_1,...]).</P>
+<P>There is a special parameter - a subject parameter, which says that a function is at position of property. For example:</P>
+<PRE>
+  subproperty(schema:SomeProperty)</PRE>
+<P>has no subject parameter defined and returns property <STRONG>names</STRONG> that are subproperties of given schema:SomeProperty.</P>
+<PRE>
+  data:SomeObject.subproperty(schema:SomeProperty)</PRE>
+<P>has subject parameter data:SomeObject and return <STRONG>values</STRONG> of subproperties for subject.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_Data">Data</A></STRONG><BR>
+
+RDF::Core::Model object that contains data to be queried.
+<P></P>
+<LI><STRONG><A NAME="item_Schema">Schema</A></STRONG><BR>
+
+RDF::Core::Model object that contains RDF schema.
+<P></P>
+<LI><STRONG><A NAME="item_Factory">Factory</A></STRONG><BR>
+
+RDF::Core::NodeFactory object, that produces resource and literal objects.
+<P></P></UL>
+<LI><STRONG><A NAME="item_getFunctions">getFunctions</A></STRONG><BR>
+
+Returns a hash reference where each key is a name of a functions and value is a reference to an implementation code.
+<P></P></UL>
+<P>
+<H2><A NAME="functions implemented">Functions implemented</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_subclass"><CODE>subclass(X)</CODE></A></STRONG><BR>
+
+Not defined subject parameter:
+<P>Find all subclasses of X in Schema and return them if they have an instance in Data.</P>
+<P>Defined subject parameter:</P>
+<P>Result is not defined, dies.</P>
+<P></P>
+<LI><STRONG><A NAME="item_subproperty"><CODE>subproperty(X)</CODE></A></STRONG><BR>
+
+Not defined subject parameter:
+<P>Find all subproperties of X in Schema and return them if they occur in Data.</P>
+<P>Defined subject parameter:</P>
+<P>Find all subproperties of X in Schema and return their values for subject, if found.</P>
+<P></P>
+<LI><STRONG><A NAME="item_member"><CODE>member()</CODE></A></STRONG><BR>
+
+Not defined subject parameter:
+<P>Result is not defined, dies.</P>
+<P>Defined subject parameter:</P>
+<P>Find all container members of subject.</P>
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Query</P>
+
+</BODY>
+
+</HTML>

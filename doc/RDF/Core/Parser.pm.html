@@ -1,0 +1,111 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Parser - RDF Parser</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+		<LI><A HREF="#assert handler">Assert handler</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Parser - RDF Parser</P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>A module for parsing XML documents containing RDF data. It's based on XML::Parser. Parser goes through XML and calls what is referenced in Assert option for each statement found.</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Parser;</PRE>
+<PRE>
+  my %options = (Assert =&gt; \&amp;handleAssert,
+                 BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
+                );
+  my $parser = new RDF::Core::Parser(%options);
+  $parser-&gt;parseFile('./rdfFile.xml');
+  #or
+  $parser-&gt;parse($rdfString);</PRE>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are
+<UL>
+<LI><STRONG><A NAME="item_Assert">Assert</A></STRONG><BR>
+
+A reference to a subroutine, that is called for every assertion that parser generates.
+<P></P>
+<LI><STRONG><A NAME="item_BaseURI">BaseURI</A></STRONG><BR>
+
+A base URI of parsed document. It will be used to resolve relative URI references.
+<P></P>
+<LI><STRONG><A NAME="item_InlineURI">InlineURI</A></STRONG><BR>
+
+Inline URI is used to generate URIs for anonymous (inline) resources.
+<P></P></UL>
+<LI><STRONG><A NAME="item_parse"><CODE>parse($string)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_parseFile"><CODE>parseFile($fileName)</CODE></A></STRONG><BR>
+
+</UL>
+<P>
+<H2><A NAME="assert handler">Assert handler</A></H2>
+<P>Assert handler is called with key value pairs in a parameters array.</P>
+<P>Keys are:</P>
+<UL>
+<LI><STRONG><A NAME="item_subject_ns%2C_subject_name%2C_subject_uri">subject_ns, subject_name, subject_uri</A></STRONG><BR>
+
+namespace, local value and URI of subject
+<P></P>
+<LI><STRONG><A NAME="item_predicate_ns%2C_predicate_name%2C_predicate_uri">predicate_ns, predicate_name, predicate_uri</A></STRONG><BR>
+
+namespace, local value and URI of predicate
+<P></P>
+<LI><STRONG><A NAME="item_object_ns%2C_object_name%2C_object_uri">object_ns, object_name, object_uri</A></STRONG><BR>
+
+namespace, local value and URI of object, if the object is a resource
+<P>or</P>
+<P></P>
+<LI><STRONG><A NAME="item_object_literal">object_literal</A></STRONG><BR>
+
+object value for literal
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Model::Parser</P>
+
+</BODY>
+
+</HTML>

@@ -1,0 +1,87 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Storage::Postgres - PostgreSQL implementation of RDF::Core::Storage</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+		<LI><A HREF="#installation">INSTALLATION</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Storage::Postgres - PostgreSQL implementation of RDF::Core::Storage</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Storage::Postgres;
+  my $storage = new RDF::Core::Storage::Postgres((
+                                                  ConnectStr=&gt;'dbi:Pg:dbname=rdf',
+                                                  DBUser=&gt;'username',
+                                                  Model=&gt;'1',
+                                                 ));
+  my $model = new RDF::Core::Model (Storage =&gt; $storage);</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>The storage is based on PostgreSQL database.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_ConnectStr">ConnectStr</A></STRONG><BR>
+
+Connect string (see PostgreSQL documentation)
+<P></P>
+<LI><STRONG><A NAME="item_DBUser%2C_DBPassword">DBUser, DBPassword</A></STRONG><BR>
+
+Database username and pasword.
+<P></P>
+<LI><STRONG><A NAME="item_Model">Model</A></STRONG><BR>
+
+More then one model can be stored in one database, use Model to distinct between them.
+<P></P></UL>
+<P>The rest of the interface is described in RDF::Core::Storage.</P>
+</UL>
+<P>
+<H2><A NAME="installation">INSTALLATION</A></H2>
+<P>You need to have PostgreSQL database installed. Then run scripts in dbmodel/pgsql/rdf-pgsql.sql and database will be created and ready for use.</P>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Storage, RDF::Core::Model</P>
+
+</BODY>
+
+</HTML>

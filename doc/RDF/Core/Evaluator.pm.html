@@ -1,0 +1,92 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Evaluator - gets a query object that RDF::Core::Query parsed and evaluates the query.</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Evaluator - gets a query object that RDF::Core::Query parsed and evaluates the query.</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  my %namespaces = (Default =&gt; '<A HREF="http://myApp.gingerall.org/ns#">http://myApp.gingerall.org/ns#</A>',
+                    ns     =&gt; '<A HREF="http://myApp.gingerall.org/ns#">http://myApp.gingerall.org/ns#</A>',
+                   );
+  my $evaluator = new RDF::Core::Evaluator
+    (Model =&gt; $model,            #an instance of RDF::Core::Model
+     Factory =&gt; $factory,        #an instance of RDF::Core::NodeFactory
+     Namespaces =&gt; \%namespaces,
+    );
+  my $query = new RDF::Core::Query(Evaluator=&gt; $evaluator);</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>The evaluator is just to be created and passed to query object, that uses it to evaluate the query.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_Model">Model</A></STRONG><BR>
+
+RDF::Core::Model object that contains data to be queried.
+<P></P>
+<LI><STRONG><A NAME="item_Functions">Functions</A></STRONG><BR>
+
+RDF::Core::Function object is a functions library.
+<P></P>
+<LI><STRONG><A NAME="item_Factory">Factory</A></STRONG><BR>
+
+RDF::Core::NodeFactory object, that produces resource and literal objects.
+<P></P>
+<LI><STRONG><A NAME="item_Namespaces">Namespaces</A></STRONG><BR>
+
+A hash containing namespace prefixes as keys and URIs as values. See more in paragraph <STRONG>Names and URIs</STRONG> in RDF::Core::Query,
+<P></P>
+<LI><STRONG><A NAME="item_Row">Row</A></STRONG><BR>
+
+A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value.
+<P></P></UL>
+</UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Query</P>
+
+</BODY>
+
+</HTML>

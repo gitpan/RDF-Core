@@ -87,6 +87,7 @@ use constant Q_NAMESPACE    => 'NAMESPACE';
 use constant Q_MATCH        => 'MATCH';
 use constant Q_PATH         => 'PATH';
 use constant Q_CLASS        => 'CLASS';
+use constant Q_BINDING      => 'BINDING';
 use constant Q_ELEMENTS     => 'ELEMENTS';
 use constant Q_ELEMENTPATH  => 'ELEMENTPATH';
 use constant Q_ELEMENT      => 'ELEMENT';
@@ -229,31 +230,31 @@ sub _nextToken {
 	    $retVal->{value} = $firstChar;
 	    $$pos++;
 	}
-    } elsif (substr ($$str, $$pos, 6) =~ /select/i) {
+    } elsif (substr ($$str, $$pos, 7) =~ /select\W/i) {
 	$retVal->{type} = TOK_SELECT;
 	$retVal->{value} = substr ($$str, $$pos, 6);
 	$$pos += 6;
-    } elsif (substr ($$str, $$pos, 5) =~ /where/i) {
+    } elsif (substr ($$str, $$pos, 6) =~ /where\W/i) {
 	$retVal->{type} = TOK_WHERE;
 	$retVal->{value} = substr ($$str, $$pos, 5);
 	$$pos += 5;
-    } elsif (substr ($$str, $$pos, 4) =~ /from/i) {
+    } elsif (substr ($$str, $$pos, 5) =~ /from\W/i) {
 	$retVal->{type} = TOK_FROM;
 	$retVal->{value} = substr ($$str, $$pos, 4);
 	$$pos += 4;
-    } elsif (substr ($$str, $$pos, 3) =~ /use/i) {
+    } elsif (substr ($$str, $$pos, 4) =~ /use\W/i) {
 	$retVal->{type} = TOK_USE;
 	$retVal->{value} = substr ($$str, $$pos, 3);
 	$$pos += 3;
-    } elsif (substr ($$str, $$pos, 3) =~ /for/i) {
+    } elsif (substr ($$str, $$pos, 4) =~ /for\W/i) {
 	$retVal->{type} = TOK_FOR;
 	$retVal->{value} = substr ($$str, $$pos, 3);
 	$$pos += 3;
-    } elsif (substr ($$str, $$pos, 3) =~ /and/i) {
+    } elsif (substr ($$str, $$pos, 4) =~ /and\W/i) {
 	$retVal->{type} = TOK_AND;
 	$retVal->{value} = substr ($$str, $$pos, 3);
 	$$pos += 3;
-    } elsif (substr ($$str, $$pos, 2) =~ /or/i) {
+    } elsif (substr ($$str, $$pos, 3) =~ /or\W/i) {
 	$retVal->{type} = TOK_OR;
 	$retVal->{value} = substr ($$str, $$pos, 2);
 	$$pos += 2;
@@ -408,22 +409,11 @@ sub _parse {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
 	} elsif ($token->{type} eq TOK_VAR) {
-	    
-	    if (@context[@context - 1]->[0] eq Q_SOURCEPATH) {
+	    if (@context[@context - 1]->[0] eq Q_BINDING) {
 		#variable binding
-		my $node = $self->_treeNode(\@context);
-		my $index = @{$node->{+Q_ELEMENT}} -1;
-		push @context, [Q_VARIABLE, $index];
-		$node = $self->_treeNode(\@context);
-		$node->{+Q_NAME}->[0] = $token->{value};
-		pop @context;	#Q_VARIABLE
-	    } elsif (@context[@context - 2]->[0] eq Q_SOURCEPATH &&
-		     @context[@context - 1]->[0] eq Q_CLASS) {
-		#variable binding in Class expression
 		my $node = $self->_treeNodeAppend(\@context, Q_VARIABLE);
 		$node->{+Q_NAME}->[0] = $token->{value};
 		pop @context;   #Q_VARIABLE
-		pop @context;   #Q_CLASS
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENT) {
 		my $node = $self->_treeNodeAppend(\@context, Q_VARIABLE);
 		$node->{+Q_NAME}->[0] = $token->{value};
@@ -616,7 +606,27 @@ sub _parse {
 	    }
 	    
 	} elsif ($token->{type} eq TOK_LCUR) {
+	    if (@context[@context - 1]->[0] eq Q_SOURCEPATH) {
+		#variable binding
+		my $node = $self->_treeNode(\@context);
+		my $index = @{$node->{+Q_ELEMENT}} -1;
+		push @context, [Q_BINDING, $index];
+	    } elsif (@context[@context - 2]->[0] eq Q_SOURCEPATH &&
+		     @context[@context - 1]->[0] eq Q_CLASS) {
+		#variable binding in Class expression
+		my $node = $self->_treeNodeAppend(\@context, Q_BINDING);
+	    } else {
+		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
+	    }
+
 	} elsif ($token->{type} eq TOK_RCUR) {
+	    until (@context == 0 ||
+		   @context[@context - 1]->[0] eq Q_BINDING
+		  ) {
+		pop @context;
+	    };
+	    pop @context;   #Q_BINDING
+
 	} elsif ($token->{type} eq TOK_PERIOD) {
 	    if (@context[@context - 1]->[0] eq Q_ELEMENTPATH ||
 		@context[@context - 1]->[0] eq Q_SOURCEPATH) {
@@ -661,6 +671,7 @@ sub _parse {
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENTS) {
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } elsif (@context[@context - 1]->[0] eq Q_NAMESPACE) {
+	    } elsif (@context[@context - 1]->[0] eq Q_BINDING) {
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");
 	    }
@@ -922,7 +933,11 @@ This means find all resources that have property ns:author and value of the prop
 
   Select ?x from ?x.ns:author{?author}.ns:name{?name}
 
-This means find the same as in the recent example and bind ?author variable to author value and ?name to name value. The variable is bound to a value of property, not property itself. Now we can add second path, connected to the first one:
+This means find the same as in the recent example and bind ?author variable to author value and ?name to name value. The variable is bound to a value of property, not property itself. If there is a second variable bound, it's bound to property itself:
+
+  Select ?x from ?x.ns:author{?author}.ns:name{?name,?prop}
+
+The variable ?name will contain a name of an author, while ?prop variable will contain an uri of ns:name property. Now we can add second path, connected to the first one:
 
   Select ?x 
   From ?x.ns:author{?author}.ns:name{?name}, ?author.ns:birth{?birth}
@@ -1023,6 +1038,12 @@ Now we can restate the condition with variants to a condition with a function ca
 
 We consider we have apropriate schema where book, booklet, article etc. are (direct or indirect) rdfs:subPropertyOf publication.
 
+The above function does this: search schema for subproperties of publication and return value of the subproperty. Sometimes we'd like to know not only value of that "hidden" property, but the property itself. Again, we can use a multiple binding, we get uri of publication in ?publication and uri of property (book, booklet, article, ...) in ?property.
+
+  Select ?publication, ?property
+  From ?author.subproperty(publication){?publication, ?property}
+  Where ?publication.published < '1938'
+
 =head2 A BNF diagram for query language
 
   <query>	::= Select <resultset> From <source> [Where <condition>]
@@ -1031,7 +1052,7 @@ We consider we have apropriate schema where book, booklet, article etc. are (dir
   <source>	::= <sourcepath>{","<sourcepath>}
   <sourcepath>	::= <element>[ "{" <variable> "}" ]
                     ["::"<element>[ "{" <variable> "}" ]]
-                    {"."<element>[ "{" <variable> "}" ]} 
+                    {"."<element>[ "{" <variable> [, <variable>]"}" ]} 
 		    ["=>"<element> | <expression>]
   <condition>	::= <match> | <condition> <connection> <condition> 
                     {<connection> <condition>} 

@@ -40,8 +40,8 @@ our @ISA = qw(RDF::Core::Storage);
 
 use Carp;
 use DBI qw(:sql_types);
-use RDF::Core::Statement;
-use RDF::Core::Enumerator::Postgres;
+require RDF::Core::Statement;
+require RDF::Core::Enumerator::Postgres;
 
 ############################################################
 # constants

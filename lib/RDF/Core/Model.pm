@@ -36,6 +36,7 @@ package RDF::Core::Model;
 use strict;
 require Exporter;
 
+require RDF::Core::Resource;
 
 use Carp;
 
@@ -94,6 +95,23 @@ sub countStmts {
 	  ref  $self->{_options}->{Storage};
      $self->{_options}->{Storage}->countStmts(@_);
 }
+
+sub getObjects {
+    my ($self, $subj, $pred) = @_;
+    $subj = new RDF::Core::Resource($subj)
+      unless (ref $subj && $subj->isa("RDF::Core::Resource"));
+    $pred = new RDF::Core::Resource($pred)
+      unless (ref $pred && $pred->isa("RDF::Core::Resource"));
+    my $enum = $self->getStmts($subj, $pred, undef);
+    my $stmt = $enum->getFirst;
+    my $ret = [];
+    while ($stmt) {
+	push @$ret, $stmt->getObject;
+	$stmt = $enum->getNext;
+    }
+    return $ret;
+}
+
 1;
 __END__
 
@@ -161,6 +179,10 @@ Count matching statements.
 =item * getStmts($subject,$predicate,$object)
 
 Retrieve matching statements. Returns RDF::Core::Enumerator object.
+
+=item * getObjects($subject, $predicate)
+
+Return a reference to an array keeping all object, that are values of specified $predicate for given $subject.
 
 =back
 

@@ -1,0 +1,88 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Model::Serializer - interface between model and RDF::Core::Serializer</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<PRE>
+  RDF::Core::Model::Serializer - interface between model and RDF::Core::Serializer</PRE>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Model::Serializer;</PRE>
+<PRE>
+  my $xml = '';
+  my $serializer = new RDF::Core::Model::Serializer(Model=&gt;$model,
+                                                    Output=&gt;\$xml,
+                                                    BaseURI =&gt; 'URI://BASE/',
+                                                    InlineURI =&gt; 'URI://INLINE/URI/',
+                                                   );
+  $serializer-&gt;serialize;
+  print &quot;$xml\n&quot;;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>A Model::Serializer object sets handlers for serializer, connecting the serializer with a specific model.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Avaliable options are:
+<UL>
+<LI><STRONG><A NAME="item_Model">Model</A></STRONG><BR>
+
+A reference to RDF::Core::Model object - the RDF model I want to serialize.
+<P></P>
+<LI><STRONG><A NAME="item_Output%2C_BaseURI%2C_InlineURI%2C_InlinePrefix">Output, BaseURI, InlineURI, InlinePrefix</A></STRONG><BR>
+
+See RDF::Core::Serializer options
+<P></P></UL>
+<LI><STRONG><A NAME="item_getOptions">getOptions</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_setOptions"><CODE>setOptions(\%options)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_serialize">serialize</A></STRONG><BR>
+
+</UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Serializer, RDF::Core::Model</P>
+
+</BODY>
+
+</HTML>

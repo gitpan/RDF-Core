@@ -1,0 +1,95 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#license">LICENSE</A></LI>
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Model::Parser - interface between model and RDF::Core::Parser</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  use RDF::Core::Model::Parser;
+  %options = (Model =&gt; $model,
+              Source =&gt; $fileName,
+              SourceType =&gt; 'file',
+              #parserOptions
+              BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
+              InlineURI =&gt; &quot;<A HREF="http://www.bar.com/&quot">http://www.bar.com/&quot</A>;
+             )
+  my $parser = new RDF::Core::Model::Parser(%options);
+  $parser-&gt;parse;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>While RDF::Core::Parser transforms RDF/XML syntax into general assertions, RDF::Core::Model::Parser defines default handler for assertion and provides methods that should conform any parsing request. That is setting options and doing the parse job. If there is need for use of another existing rdf parser or more parsers, a new parser interface should be created.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new"><CODE>new(%options)</CODE></A></STRONG><BR>
+
+Available options are:
+<UL>
+<LI><STRONG><A NAME="item_Model">Model</A></STRONG><BR>
+
+Where should the statements be stored in.
+<P></P>
+<LI><STRONG><A NAME="item_Source">Source</A></STRONG><BR>
+
+A name of a XML file or a string containing XML.
+<P></P>
+<LI><STRONG><A NAME="item_SourceType">SourceType</A></STRONG><BR>
+
+Contains 'string' if source is a XML string or 'file' if source is a file name.
+<P></P>
+<LI><STRONG><A NAME="item_%5BParserOptions%5D">[ParserOptions]</A></STRONG><BR>
+
+All other options are passed to the parser (<A HREF="/RDF/Core/Parser.html">the RDF::Core::Parser manpage</A>).
+<P></P></UL>
+<LI><STRONG><A NAME="item_getOptions">getOptions</A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_setOptions"><CODE>setOptions(\%options)</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_parse">parse</A></STRONG><BR>
+
+</UL>
+<P>
+<HR>
+<H1><A NAME="license">LICENSE</A></H1>
+<P>This package is subject to the MPL (or the GPL alternatively).</P>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<P>RDF::Core::Parser, RDF::Core::Model</P>
+
+</BODY>
+
+</HTML>

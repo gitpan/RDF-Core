@@ -1,0 +1,78 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Enumerator - an object that provides access to a set of statements</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<UL>
+
+		<LI><A HREF="#interface">Interface</A></LI>
+	</UL>
+
+	<LI><A HREF="#author">AUTHOR</A></LI>
+	<LI><A HREF="#see also">SEE ALSO</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Enumerator - an object that provides access to a set of statements</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<PRE>
+  #print content of a model
+  my $enumerator = $model-&gt;getStmts;
+  my $statement = $enumerator-&gt;getFirst;
+  while (defined $statement) {
+    print $statement-&gt;getLabel.&quot;\n&quot;;
+    $statement = $enumerator-&gt;getNext
+  }
+  $enumerator-&gt;close;</PRE>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>A set of statements (such as returned by $model-&gt;getStmts) is represented by some descendant of RDF::Core::Enumerator. Statements can be accessed by calling getNext method repeatedly until it returns undef, which means there are no more statements to get.</P>
+<P>
+<H2><A NAME="interface">Interface</A></H2>
+<UL>
+<LI><STRONG><A NAME="item_new">new</A></STRONG><BR>
+
+Constructors differ for different implementations of Enumerator, see RDF::Core::Enumerator::Memory, RDF::Core::Enumerator::DB_File, RDF::Core::Enumerator::Postgres
+<P></P>
+<LI><STRONG><A NAME="item_getFirst">getFirst</A></STRONG><BR>
+
+Returns first statement in Enumerator, resets all preceding getNext calls. Returns undef if there is no statement.
+<P></P>
+<LI><STRONG><A NAME="item_getNext">getNext</A></STRONG><BR>
+
+Returns next statement or undef if there are no more statements.
+<P></P>
+<LI><STRONG><A NAME="item_close">close</A></STRONG><BR>
+
+Releases memory, disk, database cursor or whatever it used to provide the data.
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="author">AUTHOR</A></H1>
+<P>Ginger Alliance, <A HREF="mailto:rdf@gingerall.cz">rdf@gingerall.cz</A></P>
+<P>
+<HR>
+<H1><A NAME="see also">SEE ALSO</A></H1>
+<PRE>
+ RDF::Core::Enumerator::Memory, RDF::Core::Enumerator::DB_File, RDF::Core::Enumerator::Postgres</PRE>
+
+</BODY>
+
+</HTML>

@@ -1,0 +1,83 @@
+<HTML>
+<HEAD>
+<TITLE>RDF::Core::Schema - The RDF Schema access</TITLE>
+<LINK REV="made" HREF="mailto:prospector@porky.devel.redhat.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<HR>
+<H1><A NAME="name">NAME</A></H1>
+<P>RDF::Core::Schema - The RDF Schema access</P>
+<P>
+<HR>
+<H1><A NAME="synopsis">SYNOPSIS</A></H1>
+<P>require RDF::Core::Schema;</P>
+<P>my $schema = new RDF::Core::Schema();
+$schema-&gt;getClasses;</P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>This module provides the basic interface (OO) for RDF Schema manipulation.</P>
+<P><STRONG>Interface</STRONG></P>
+<UL>
+<LI><STRONG><A NAME="item_new">new(Storage=&gt;$storage, Factory =&gt; $factory)</A></STRONG><BR>
+
+Construct the object. $storage is the RDF::Core::Storage object that contains schema data. $factory may specify the RDF::Core::Factory to be used.
+<P></P>
+<LI><STRONG><A NAME="item_getClasses">getClasses</A></STRONG><BR>
+
+Return all classes defined in the model.
+<P></P>
+<LI><STRONG><A NAME="item_getSubClasses">getSubClasses($class, $deep)</A></STRONG><BR>
+
+Get all subclasses of given $class. $class may be either URI string or
+RDF::Core::Resource. If $deep is true, inheritance takes a deal.
+<P></P>
+<LI><STRONG><A NAME="item_getAncestors">getAncestors($class, $deep)</A></STRONG><BR>
+
+Get all ancestors of a given $class. $class may be either URI string
+or RDF::Core::Resource. If $deep is true, inheritance takes a deal.
+<P></P>
+<LI><STRONG><A NAME="item_isSubClassOf">isSubClassOf($what, $whos)</A></STRONG><BR>
+
+Tells, whether $what is a subless of $whom. Both of parameters may be
+either of RDF::Core::Resource or URI string.
+<P></P>
+<LI><STRONG><A NAME="item_getSubProperties">getSubProperties($property, $deep)</A></STRONG><BR>
+
+Get all subproperties of given $property. $property may be either URI
+string or RDF::Core::Resource. If $deep is true, inheritance takes a deal.
+<P></P>
+<LI><STRONG><A NAME="item_getAncestorProperties">getAncestorProperties($property, $deep)</A></STRONG><BR>
+
+Get all ancestor properties of given $property. $property may be either URI string or RDF::Core::Resource. If $deep is true, inheritance takes a deal.
+<P></P>
+<LI><STRONG>isSubClassOf($waht, $whos)</STRONG><BR>
+
+Tells, whether $what is a subless of $whom. Both of parameters may be
+either of RDF::Core::Resource or URI string.
+<P></P>
+<DT><STRONG><A NAME="item_getPropertiesOf">getPropertiesOf($class, $deep)</A></STRONG><BR>
+<DD>
+Get all properties of given $class. No inheritance rules are applied,
+since they are not defined in RDF Schema. $class may be either URI
+string or RDF::Core::Resource. If $deep is true, inheritance takes a deal.
+<P></P></UL>
+
+</BODY>
+
+</HTML>

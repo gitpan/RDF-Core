@@ -53,6 +53,7 @@ use constant Q_NAMESPACE    => RDF::Core::Query::Q_NAMESPACE;
 use constant Q_MATCH        => RDF::Core::Query::Q_MATCH;
 use constant Q_PATH         => RDF::Core::Query::Q_PATH;
 use constant Q_CLASS        => RDF::Core::Query::Q_CLASS;
+use constant Q_BINDING      => RDF::Core::Query::Q_BINDING;
 use constant Q_ELEMENTS     => RDF::Core::Query::Q_ELEMENTS;
 use constant Q_ELEMENTPATH  => RDF::Core::Query::Q_ELEMENTPATH;
 use constant Q_ELEMENT      => RDF::Core::Query::Q_ELEMENT;
@@ -123,8 +124,7 @@ sub _prepareResultSet {
 
 	#process $subject - a beginning of the path
 	my $subject = $self->_extractElement($_->{+Q_ELEMENT}->[0],
-					     $_->{+Q_VARIABLE}->[0]->
-					     {+Q_NAME}->[0]);
+					     $_->{+Q_BINDING}->[0]);
 	if ($subject->[0]{type} eq Q_FUNCTION) {
 	    $self->_funcParams($rs,$description,undef,$_->{+Q_ELEMENT}->[0]);
 	}
@@ -134,7 +134,7 @@ sub _prepareResultSet {
 	      newResource(RDF_NS, 'type');
 	    my $class = $self->_extractElement
 	      ($_->{+Q_CLASS}->[0]->{+Q_ELEMENT}->[0], 
-	       $_->{+Q_CLASS}->[0]->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0]);
+	       $_->{+Q_CLASS}->[0]->{+Q_BINDING});
 	    $self->_funcParams($rs,$description,undef, 
 			       $class->[0]{elementpath})
 	      if $class->[0]{type} eq Q_FUNCTION;
@@ -146,8 +146,7 @@ sub _prepareResultSet {
 	my $element;
 	if (exists $_->{+Q_ELEMENT}->[1] ) {
 	    $element = $self->_extractElement($_->{+Q_ELEMENT}->[1],
-					      $_->{+Q_VARIABLE}->[1]->
-					      {+Q_NAME}->[0]);
+					      $_->{+Q_BINDING}->[1]);
 	    $self->_funcParams($rs,$description,$subject,$_->{+Q_ELEMENT}->[1])
 	      if $element->[0]{type} eq Q_FUNCTION;
 
@@ -182,8 +181,7 @@ sub _prepareResultSet {
 	    #make "step" over the element
 
 	    $element = $self->_extractElement($_->{+Q_ELEMENT}->[$i],
-					      $_->{+Q_VARIABLE}->[$i]->
-					      {+Q_NAME}->[0]);
+					      $_->{+Q_BINDING}->[$i]);
 	    $self->_funcParams($rs,$description,undef,$_->{+Q_ELEMENT}->[$i])
 	      if $element->[0]{type} eq Q_FUNCTION;
 
@@ -252,8 +250,7 @@ sub _prepareResultSet_new {
     my $subject;
     if ($position{element} == 0) {
 	$subject = $self->_extractElement($path->{+Q_ELEMENT}->[0],
-					  $path->{+Q_VARIABLE}->[0]->
-					  {+Q_NAME}->[0]);
+					  $path->{+Q_BINDING}->[0]);
 	if ($subject->[0]{type} eq Q_FUNCTION) {
 	    $self->_funcParams($rs,$description,undef,
 			       $path->{+Q_ELEMENT}->[0]);
@@ -268,7 +265,7 @@ sub _prepareResultSet_new {
 	  newResource(RDF_NS, 'type');
 	my $class = $self->_extractElement
 	  ($path->{+Q_CLASS}->[0]->{+Q_ELEMENT}->[0], 
-	   $path->{+Q_CLASS}->[0]->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0]);
+	   $path->{+Q_CLASS}->[0]->{+Q_BINDING}->[0]);
 	$self->_funcParams($rs,$description,undef, $class->[0]{elementpath})
 	  if $class->[0]{type} eq Q_FUNCTION;
 	$position{class} = 1;
@@ -280,7 +277,7 @@ sub _prepareResultSet_new {
 	if (exists $path->{+Q_ELEMENT}->[$position{element}] ) {
 	    $element = $self->_extractElement
 	      ($path->{+Q_ELEMENT}->[$position{element}], 
-	       $path->{+Q_VARIABLE}->[$position{element}]->{+Q_NAME}->[0]);
+	       $path->{+Q_BINDING}->[$position{element}]);
 	    $self->_funcParams($rs,$description,$subject,
 			       $path->{+Q_ELEMENT}->[$position{element}])
 	      if $element->[0]{type} eq Q_FUNCTION;
@@ -335,8 +332,12 @@ sub _expandResult {
 		$pushSubject = 1;
 	    } 
 	    if ($roots && $root->{binding}) {
-		$newDescr{$root->{binding}} = @{$rs->[$i]};
-		$pushSubject = 1;
+		croak "Multiple binding is not allowed near ".$root->{name}
+		  if @{$root->{binding}} > 1;
+		if (!($description->{$root->{binding}[0]})) {
+		    $newDescr{$root->{binding}[0]} = @{$rs->[$i]};
+		    $pushSubject = 1;
+		}
 	    }
 
 
@@ -347,12 +348,19 @@ sub _expandResult {
 		    $newDescr{$element->{name}} = @{$rs->[$i]} + $pushSubject;
 		    $pushPredicate = 1;
 		}
+		if (my $bnd = $element->{binding}[1]) {
+		    if (!($description->{$bnd})) {
+			$newDescr{$bnd} = @{$rs->[$i]} + $pushSubject; 
+			$pushPredicate = 1;
+		    }
+		}
 		my $pushObject;
-		if ($element->{binding} && 
-		    !($description->{$element->{binding}})) {
-		    $newDescr{$element->{binding}} = @{$rs->[$i]} + 
-		      $pushSubject + $pushPredicate;
-		    $pushObject = 1;
+		if (my $bnd = $element->{binding}[0]) {
+		    if (!($description->{$bnd})) {
+			$newDescr{$bnd} = @{$rs->[$i]} + $pushSubject + 
+			  $pushPredicate;
+			$pushObject = 1;
+		    }
 		}
 		foreach my $target (@$targets) {
 		    if ($target->{type} eq Q_VARIABLE && 
@@ -361,11 +369,17 @@ sub _expandResult {
 			  $pushSubject + $pushPredicate;
 			$pushObject = 1;
 		    }
-		    if ($target->{binding} && 
-			!($description->{$target->{binding}})) {
-			$newDescr{$target->{binding}} = @{$rs->[$i]} + 
-			  $pushSubject + $pushPredicate;
-			$pushObject = 1;
+		    if ($target->{binding}) {
+			croak "Multiple binding is not allowed near ".
+			  $target->{name}
+			    if @{$target->{binding}} > 1;
+			my $bnd = $target->{binding}[0];
+			if (!($description->{$bnd})) {
+			    $newDescr{$bnd} = @{$rs->[$i]} + 
+			      $pushSubject + $pushPredicate;
+			    $pushObject = 1;
+			}
+			
 		    }
 		    my $found = $self->_getStmts($rs->[$i], $description, 
 						 $root, $element, $target);
@@ -430,12 +444,14 @@ sub _singularResult {
 	$pushElement = 1;
 	$newDescr{$elements->[0]{name}} = $lastIndex;
     }
-    if (defined $elements->[0]{binding}&& 
-	!exists $description->{$elements->[0]{binding}}) {
-	$pushElement = 1;
-	$newDescr{$elements->[0]{binding}} = $lastIndex;
+    if (my $bnd = $elements->[0]{binding}) {
+	croak "Multiple binding is not allowed near ".$elements->[0]->{name}
+	  if @{$bnd} > 1;
+	    if (!($description->{$bnd->[0]})) {
+		$newDescr{$bnd->[0]} = $lastIndex;
+		$pushElement = 1;
+	    }
     }
-
     for (my $i = 0; $i < @$rs; $i++) {
 	my %res;
 	my %lit;
@@ -447,11 +463,6 @@ sub _singularResult {
 	    # - this doesn't work with binding
 	    #	    return @$rs if $self->_evalVar($rs->[$i],$description,
 	    #					   $element->{name}, 'RELAX');
-	    
-	    #what does the next statement mean?
-	    #	    next if $element->{type} eq Q_NODE && 
-	    #	      defined $element->{object} && 
-	    #		$element->{object}->isLiteral;
 	    
 	    my $found = $self->_getStmts($rs->[$i], $description, 
 					 $element, undef, undef);
@@ -534,8 +545,7 @@ sub _singularResult {
 			}
 		    } else {
 			unless ($res{$st->getObject->getURI}) {
-			    if ($element->{type} eq Q_VARIABLE ||
-				defined $element->{binding}) {
+			    if ($pushElement) {
 				push @row, $st->getObject;
 			    }
 			    ##########
@@ -568,7 +578,7 @@ sub _extractElement {
     if ($element->{type} eq Q_VARIABLE) {
 	$element->{name} = $node->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0];
 	$element->{object} = undef;
-	$element->{binding} = $binding if defined $binding;
+	$element->{binding} = $self->_extractBinding($binding);
 	push @$elements, $element;
     } elsif ($element->{type} eq Q_NODE) {
 	if ($node->{+Q_NODE}->[0]->{+Q_URI}) {
@@ -590,13 +600,13 @@ sub _extractElement {
 	    $element->{object} =  $self->getOptions->{Factory}->
 	      newResource($element->{name});
 	}
-	$element->{binding} = $binding if defined $binding;
+	$element->{binding} = $self->_extractBinding($binding);
 	push @$elements, $element;
     } elsif ($element->{type} eq Q_FUNCTION) {
 	$element->{name} = $node->{+Q_FUNCTION}->[0]->{+Q_NAME}->[0];
 	$element->{elementpath} = $node->{+Q_FUNCTION}->[0]->
 	  {+Q_ELEMENTPATH};
-	$element->{binding} = $binding if defined $binding;
+	$element->{binding} = $self->_extractBinding($binding);
 	push @$elements, $element;
     } elsif ($element->{type} eq Q_ELEMENT) {
 	foreach (@{$node->{+Q_ELEMENT}}) {
@@ -604,16 +614,25 @@ sub _extractElement {
 	    push @$elements , @$subEls;
 	}
     }
-    
-    
     return $elements;
+}
+sub _extractBinding {
+    my ($self, $binding) = @_;
+    my @retVal;
+    return undef unless defined $binding;
+    foreach (@{$binding->{+Q_VARIABLE}}) {
+	push @retVal, $_->{+Q_NAME}[0];
+    }
+    return \@retVal
 }
 sub _bindingPreCheck {
     my ($self, $row, $descr, $element) = @_;
+    #if element has a binding, it should conform its value
+    #this doesn't apply to properties
     my $retVal = 1;
-    if ($element->{binding}) {
+    if ($element->{binding} && $element->{binding}[0]) {
 	my $bound = $self->_evalVar($row, $descr,
-				    $element->{binding}, 'RELAX');
+				    $element->{binding}[0], 'RELAX');
 	if ($bound) {
 	    if ($element->{type} eq Q_VARIABLE) {
 		my $val = $self->_evalVar($row, $descr,
@@ -636,9 +655,9 @@ sub _bindingPreCheck {
 sub _bindingCheck {
     my ($self, $row, $descr, $element, $result) = @_;
     my $retVal = 1;
-    if ($element->{binding}) {
+    if ($element->{binding} && $element->{binding}[0]) {
 	my $bound = $self->_evalVar($row, $descr, 
-				    $element->{binding}, 'RELAX');
+				    $element->{binding}[0], 'RELAX');
 	$retVal = 0 unless !$bound ||
 	  $result->isLiteral==$bound->isLiteral &&
 	    $result->getLabel eq $bound->getLabel;
@@ -762,7 +781,7 @@ sub _checkConditions {
 	    last unless $apply;
 	} 
 	if ($apply) {
-	    $self->_applyConditions($rs, $descr, $cond->{node}) if $apply;
+	    $self->_applyConditions($rs, $descr, $cond->{node});
 	} else {
 	    push @newCondSet, $cond;
 	}
@@ -899,10 +918,10 @@ sub _evalPath {
 	    $inst->{type} = Q_NODE;
 	    push @$newRoots, $inst;
 	} elsif ($inst->{type} eq Q_FUNCTION) {
-	    my $val = $self->_evalFun($row, $descr,$inst->{name},
-				      undef, $inst->{elementpath});
+	    my ($val) = $self->_evalFun($row, $descr,$inst->{name},
+					undef, $inst->{elementpath});
 	    foreach (@$val) {
-		push @$newRoots, {object=>$_}
+		push @$newRoots, {object=>$_};
 	    }
 	} else {
 	    push @$newRoots, $inst;
@@ -993,32 +1012,32 @@ sub _getStmts {
 	  if $_->{type} eq Q_VARIABLE;
     }
     if ($s->{type} eq Q_FUNCTION) {
-	my $val = $self->_evalFun($row, $descr, $s->{name}, undef,
-				  $s->{elementpath});
+	my ($val) = $self->_evalFun($row, $descr, $s->{name}, undef,
+				    $s->{elementpath});
 	push @subjects, @{$val};
     } else {
 	push @subjects, $s->{object};
     }
     if ($o->{type} eq Q_FUNCTION) {
-	my $val = $self->_evalFun($row, $descr, $o->{name}, undef, 
+	my ($val) = $self->_evalFun($row, $descr, $o->{name}, undef, 
 				  $o->{elementpath});
 	push @objects, @{$val};
     } else {
 	push @objects, $o->{object};
     }
-    if ($p->{type} eq Q_FUNCTION && defined $s->{object}) {
+    if ($p->{type} eq Q_FUNCTION && (defined $s->{object} || !($s->{type} eq Q_NODE))) {
 	my $fakePredicate = new RDF::Core::Resource($p->{name});
 	my @retValArray;
 	foreach my $subject (@subjects) {
-	    my $val = $self->_evalFun($row, $descr, $p->{name}, $subject,
-				      $p->{elementpath});
+	    my ($val,$pred) = $self->_evalFun($row, $descr, $p->{name}, 
+					      $subject, $p->{elementpath});
 	    foreach my $object (@objects) {
-		foreach (@{$val}) {
+		for (my $i = 0; $i < @$val; $i++) {
 		    if (!defined $object || 
-			($_->isLiteral == $object->isLiteral &&
-			 $_->getLabel eq $object->getLabel)) {
+			($val->[$i]->isLiteral == $object->isLiteral &&
+			 $val->[$i]->getLabel eq $object->getLabel)) {
 			push @retValArray , new RDF::Core::Statement
-			  ($subject,$fakePredicate,$_);
+			  ($subject,$pred->[$i]||$fakePredicate,$val->[$i]);
 		    }
 		}
 	    }
@@ -1026,7 +1045,7 @@ sub _getStmts {
 	push @retValEnum, new RDF::Core::Enumerator::Memory(\@retValArray)
     } else {
 	if ($p->{type} eq Q_FUNCTION) {
-	    my $val = $self->_evalFun($row, $descr, $p->{name}, undef, 
+	    my ($val) = $self->_evalFun($row, $descr, $p->{name}, undef, 
 				      $p->{elementpath});
 	    push @predicates, @{$val};
 	} else {
@@ -1066,19 +1085,21 @@ sub _evalVar {
 
 sub _evalFun {
     my ($self, $row, $descr, $name, $subject, $elementPath) = @_;
-    my $retVal= [];
+    my @retVal;
+    my @predicates;
     my $params;
     my $functions = $self->getOptions->{Functions};
     $params = $self->_evalRow($row, $descr, $elementPath);
     foreach (@$params) {
 	my $fun = $functions->getFunctions->{$name};
 	croak "Unknown function: $name" unless $fun;
-	my $ret = &{$fun}($functions,$subject,$_);
-	push @$retVal, @{$ret};
+	my @ret = &{$fun}($functions,$subject,$_);
+	push @retVal, @{$ret[0]};
+	push @predicates, @{$ret[1]};
     }
     
 
-    return $retVal;
+    return (\@retVal, \@predicates);
 }
 
 sub _evalExpression {

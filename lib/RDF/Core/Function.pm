@@ -49,9 +49,10 @@ sub new {
     my $self = {};
     $self->{_options} = \%options;
     $self->{_functions} = {self=>\&self,
-			  subclass=>\&subclass,
-			  subproperty=>\&subproperty,
-			 };
+			   subclass=>\&subclass,
+			   subproperty=>\&subproperty,
+			   member=>\&member,
+			  };
     bless $self, $pkg;
 }
 sub getOptions {
@@ -66,14 +67,15 @@ sub getFunctions {
 
 sub self {
     my ($self, $subject, $params) = @_;
-    my $retVal= [];
-
-    return $retVal = defined $subject ? [$subject] : [$params->[0]];
+    my $retVal = [];
+    my $predicates = [];
+    $retVal = defined $subject ? [$subject] : [$params->[0]];
+    return ($retVal,$predicates);
 }
     
 sub subclass {
     my ($self, $subject, $params) = @_;
-    my $retVal= [];
+    my $predicates = [];
     
     croak "Function subclass expects one parameter."
       unless @$params == 1;
@@ -84,17 +86,18 @@ sub subclass {
     my $enum = $self->getOptions->{Schema}->getStmts(undef,$pred,$params->[0]);
     while (my $st = $enum->getNext) {
 	push @subClasses, $st->getSubject;
-	push @subClasses, @{$self->subclass(undef, [$st->getSubject])};
+	my @sub = $self->subclass(undef, [$st->getSubject]);
+	push @subClasses, @{$sub[0]};
     }
     $enum->close;
-    $retVal = \@subClasses;
     
-    return $retVal
+    return (\@subClasses, $predicates);
 }
 
 sub subproperty {
     my ($self, $subject, $params) = @_;
     my $retVal= [];
+    my $predicates = [];
     
     croak "Function subproperty expects one parameter."
       unless @$params == 1;
@@ -103,7 +106,8 @@ sub subproperty {
     my $enum = $self->getOptions->{Schema}->getStmts(undef,$pred,$params->[0]);
     while (my $st = $enum->getNext) {
 	push @subProperties, $st->getSubject;
-	push @subProperties, @{$self->subproperty(undef, [$st->getSubject])};
+	my @sub = $self->subproperty(undef, [$st->getSubject]);
+	push @subProperties, @{$sub[0]};
     }
     $enum->close;
     if ($subject) {
@@ -114,6 +118,7 @@ sub subproperty {
 							       undef);
 		while (my $st = $enum->getNext) {
 		    push @$retVal, $st->getObject;
+		    push @$predicates, $st->getPredicate;
 		}
 		$enum->close;
 	    }
@@ -122,7 +127,32 @@ sub subproperty {
 	$retVal = \@subProperties;
     }
     
-    return $retVal
+    return ($retVal, $predicates);
+}
+
+sub member {
+    my ($self, $subject, $params) = @_;
+    my @retVal;
+    my @predicates;
+    my @members;
+    my @sorted_members;
+    
+#    my $pred = $self->getOptions->{Factory}->newResource(RDFS_NS.'type');
+    if ($subject && !$subject->isLiteral) {
+	my $enum = $self->getOptions->{Data}->
+	  getStmts($subject,undef,undef);
+	while (my $st = $enum->getNext) {
+	    if ($st->getPredicate->getURI =~ /\#\_(\d)$/) {
+		push @members, [$st->getObject,$st->getPredicate,$1];
+	    }
+	}
+	@sorted_members = sort { $a->[2] <=> $b->[2] } @members;
+    }
+    foreach (@sorted_members) {
+	push @retVal, $_->[0];
+	push @predicates, $_->[1];
+    }
+    return (\@retVal, \@predicates);
 }
 
 
@@ -137,7 +167,12 @@ RDF::Core::Function - a package of functions for query language.
 
 =head1 DESCRIPTION
 
-When there is a function found while evaluating query, its parameters are evaluated and passed to RDF::Core::Function apropriate piece of code. The code reference is obtained in a hash returned by getFunctions() call. Each function accepts RDF::Core::Literal or RDF::Core::Resource objects as paramaters and returns an array reference to objects of the same type. 
+When there is a function found while evaluating query, its parameters are evaluated and passed to RDF::Core::Function apropriate piece of code. The code reference is obtained in a hash returned by getFunctions() call. Each function accepts RDF::Core::Literal or RDF::Core::Resource objects as paramaters and returns a tuple of arrays (array of two array references). The first references to an array of function results - Resource or Literal objects, the second one references to an array of predicates that could be used instead of the function. This is not always applicable, so the second array can be empty.
+For example, a function call:
+
+  someBag.member()
+
+returns ([uri://uri-of-the-first-member,....],[rdf:_1,...]).
 
 There is a special parameter - a subject parameter, which says that a function is at position of property. For example:
 
@@ -204,6 +239,16 @@ Find all subproperties of X in Schema and return them if they occur in Data.
 Defined subject parameter:
 
 Find all subproperties of X in Schema and return their values for subject, if found.
+
+=item * member()
+
+Not defined subject parameter:
+
+Result is not defined, dies.
+
+Defined subject parameter:
+
+Find all container members of subject.
 
 =back
 
