@@ -60,6 +60,7 @@ use constant TOK_COMMA    => 'TOK_COMMA';
 use constant TOK_COLON    => 'TOK_COLON';
 use constant TOK_PIPE     => 'TOK_PIPE';
 use constant TOK_EQ       => 'TOK_EQ';
+use constant TOK_NEQ      => 'TOK_NEQ';
 use constant TOK_LE       => 'TOK_LE';
 use constant TOK_LT       => 'TOK_LT';
 use constant TOK_GE       => 'TOK_GE';
@@ -68,6 +69,8 @@ use constant TOK_GT       => 'TOK_GT';
 use constant TOK_SELECT   => 'TOK_SELECT';
 use constant TOK_WHERE    => 'TOK_WHERE';
 use constant TOK_FROM     => 'TOK_FROM';
+use constant TOK_USE      => 'TOK_USE';
+use constant TOK_FOR      => 'TOK_FOR';
 use constant TOK_AND      => 'TOK_AND';
 use constant TOK_OR       => 'TOK_OR';
 
@@ -80,9 +83,10 @@ use constant Q_SOURCEPATH   => 'SOURCEPATH';
 use constant Q_HASTARGET    => 'HASTARGET';
 use constant Q_TARGET       => 'TARGET';
 use constant Q_CONDITION    => 'CONDITION';
+use constant Q_NAMESPACE    => 'NAMESPACE';
 use constant Q_MATCH        => 'MATCH';
 use constant Q_PATH         => 'PATH';
-use constant Q_CLASSPATH    => 'CLASSPATH';
+use constant Q_CLASS        => 'CLASS';
 use constant Q_ELEMENTS     => 'ELEMENTS';
 use constant Q_ELEMENTPATH  => 'ELEMENTPATH';
 use constant Q_ELEMENT      => 'ELEMENT';
@@ -115,6 +119,8 @@ sub query {
     my ($self, $queryString) = @_;
     my @tokens = $self->_tokenize($queryString);
     $self->_parse (\@tokens);
+    $self->_syntaxTree($self->{QUERY}[0],50,'')
+    if $self->getOptions->{Debug};
     my $rs = $self->getOptions->{Evaluator}->evaluate($self->{QUERY}[0]);
     return $rs;
 
@@ -235,12 +241,24 @@ sub _nextToken {
 	$retVal->{type} = TOK_FROM;
 	$retVal->{value} = substr ($$str, $$pos, 4);
 	$$pos += 4;
+    } elsif (substr ($$str, $$pos, 3) =~ /use/i) {
+	$retVal->{type} = TOK_USE;
+	$retVal->{value} = substr ($$str, $$pos, 3);
+	$$pos += 3;
+    } elsif (substr ($$str, $$pos, 3) =~ /for/i) {
+	$retVal->{type} = TOK_FOR;
+	$retVal->{value} = substr ($$str, $$pos, 3);
+	$$pos += 3;
     } elsif (substr ($$str, $$pos, 3) =~ /and/i) {
 	$retVal->{type} = TOK_AND;
 	$retVal->{value} = substr ($$str, $$pos, 3);
 	$$pos += 3;
     } elsif (substr ($$str, $$pos, 2) =~ /or/i) {
 	$retVal->{type} = TOK_OR;
+	$retVal->{value} = substr ($$str, $$pos, 2);
+	$$pos += 2;
+    } elsif (substr ($$str, $$pos, 2) =~ /!=/i) {
+	$retVal->{type} = TOK_NEQ;
 	$retVal->{value} = substr ($$str, $$pos, 2);
 	$$pos += 2;
     } elsif ($firstChar eq '"' || $firstChar eq '\'') {
@@ -365,9 +383,9 @@ sub _parse {
 		my $node = $self->_treeNode(\@context);
 		#TODO: $node should point to an empty structure, raise error 
 		# if there is a token value in it
-		# $node->{classpath}[0]{elements}[0]{element} = [] is ok
-		# $node->{classpath}[0]{elements}[0]{element} = [{node}...] is not ok
-		# $node->{classpath}[1]{elements}[0]{element} = [] is not ok either
+		# $node->{elements}[0]{element} = [] is ok
+		# $node->{elements}[0]{element} = [{node}...] is not ok
+
 		undef %$node;
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
@@ -392,12 +410,20 @@ sub _parse {
 	} elsif ($token->{type} eq TOK_VAR) {
 	    
 	    if (@context[@context - 1]->[0] eq Q_SOURCEPATH) {
+		#variable binding
 		my $node = $self->_treeNode(\@context);
 		my $index = @{$node->{+Q_ELEMENT}} -1;
 		push @context, [Q_VARIABLE, $index];
 		$node = $self->_treeNode(\@context);
 		$node->{+Q_NAME}->[0] = $token->{value};
 		pop @context;	#Q_VARIABLE
+	    } elsif (@context[@context - 2]->[0] eq Q_SOURCEPATH &&
+		     @context[@context - 1]->[0] eq Q_CLASS) {
+		#variable binding in Class expression
+		my $node = $self->_treeNodeAppend(\@context, Q_VARIABLE);
+		$node->{+Q_NAME}->[0] = $token->{value};
+		pop @context;   #Q_VARIABLE
+		pop @context;   #Q_CLASS
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENT) {
 		my $node = $self->_treeNodeAppend(\@context, Q_VARIABLE);
 		$node->{+Q_NAME}->[0] = $token->{value};
@@ -413,6 +439,10 @@ sub _parse {
 		$node->{+Q_URI}->[0] = $token->{value};
 		pop @context;  #Q_NODE
 		pop @context;  #Q_ELEMENT
+	    } elsif (@context[@context - 1]->[0] eq Q_NAMESPACE) {
+		my $node = $self->_treeNode(\@context);
+		my $index = defined $node->{+Q_URI} ? @{$node->{+Q_URI}} : 0;
+		$node->{+Q_URI}->[$index] = $token->{value};
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
@@ -439,18 +469,25 @@ sub _parse {
 		    pop @context; #Q_NODE
 		    pop @context; #Q_ELEMENT
 		}
+	    } elsif (@context[@context - 1]->[0] eq Q_NAMESPACE) {
+		my $node = $self->_treeNode(\@context);
+		my $index = defined $node->{+Q_NAME} ? @{$node->{+Q_NAME}} : 0;
+		$node->{+Q_NAME}->[$index] = $token->{value};
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
 	} elsif ($token->{type} eq TOK_CLASS) {
-	    if (@context[@context - 1]->[0] eq Q_ELEMENTS) {
-		pop @context;	#Q_ELEMENTS
-
-		_errSyntax ($tokens, $i, \@context, "Unexpected token")
-		  unless @context[@context - 1]->[0] eq Q_CLASSPATH;
+	    until ( @context == 0 || 
+		    @context[@context - 1]->[0] eq Q_PATH ||
+		    @context[@context - 1]->[0] eq Q_SOURCEPATH) {
+		pop @context;
+	    }
+	    my $pathtype = @context[@context - 1]->[0];
+	    if (@context > 0) {
 		my $node = $self->_treeNode(\@context);
-
-		$self->_treeNodeAppend(\@context, Q_ELEMENTS);
+		$self->_treeNodeAppend(\@context, Q_CLASS);
+		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
+		  if $pathtype eq Q_PATH;
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");
@@ -499,7 +536,6 @@ sub _parse {
 		    push @rndParens, Q_ELEMENTS;
 		    $self->_treeNodeAppend(\@context,Q_MATCH);
 		    $self->_treeNodeAppend(\@context,Q_PATH);
-		    $self->_treeNodeAppend(\@context,Q_CLASSPATH);
 		    $self->_treeNodeAppend(\@context,Q_ELEMENTS);
 		    $self->_treeNodeAppend(\@context,Q_ELEMENT);
 		} elsif (exists $significant{+TOK_AND} ||
@@ -510,7 +546,6 @@ sub _parse {
 		    unless ($tokens->[$i+1]->{type} eq TOK_LPAREN) {
 			$self->_treeNodeAppend(\@context,Q_MATCH);
 			$self->_treeNodeAppend(\@context,Q_PATH);
-			$self->_treeNodeAppend(\@context,Q_CLASSPATH);
 			$self->_treeNodeAppend(\@context,Q_ELEMENTS);
 			$self->_treeNodeAppend(\@context,Q_ELEMENT);
 		    }
@@ -526,7 +561,6 @@ sub _parse {
 		    unless ($tokens->[$i+1]->{type} eq TOK_LPAREN) {
 			$self->_treeNodeAppend(\@context,Q_MATCH);
 			$self->_treeNodeAppend(\@context,Q_PATH);
-			$self->_treeNodeAppend(\@context,Q_CLASSPATH);
 			$self->_treeNodeAppend(\@context,Q_ELEMENTS);
 			$self->_treeNodeAppend(\@context,Q_ELEMENT);
 		    }
@@ -588,15 +622,21 @@ sub _parse {
 		@context[@context - 1]->[0] eq Q_SOURCEPATH) {
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENTS ||
-		     @context[@context - 1]->[0] eq Q_CLASSPATH ||
 		     @context[@context - 1]->[0] eq Q_PATH) {
-		#Q_ELEMENTS is to be removed and optionally Q_CLASSPATH
+		#Q_ELEMENTS is to be removed and optionally Q_CLASS
 		#(or anything up to Q_PATH)
-		until (@context == 0 || @context[@context - 1]->[0] eq Q_PATH) {
+		until (@context == 0 || @context[@context-1]->[0] eq Q_PATH) {
 		    pop @context;
 		}
 
 		$self->_treeNodeAppend(\@context, Q_ELEMENTS);
+		$self->_treeNodeAppend(\@context, Q_ELEMENT);
+	    } elsif (@context[@context - 1]->[0] eq Q_CLASS) {
+		#Q_CLASS is to be removed and then decide whether Q_ELEMENTS
+		#should be added
+		pop @context;  #Q_CLASS
+		$self->_treeNodeAppend(\@context, Q_ELEMENTS)
+		  if @context[@context - 1]->[0] eq Q_PATH;
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");
@@ -604,6 +644,10 @@ sub _parse {
 	} elsif ($token->{type} eq TOK_COMMA) {
 	    if (@context[@context - 1]->[0] eq Q_EXPRESSION) {
 		pop @context;  #Q_EXPRESSION
+	    }
+	    if (@context[@context - 1]->[0] eq Q_CLASS) {
+		#finish Q_CLASS and continue with some PATH
+		pop @context;  #Q_CLASS
 	    }
 	    if (@context[@context - 1]->[0] eq Q_ELEMENTPATH ||
 		@context[@context - 1]->[0] eq Q_SOURCEPATH) {
@@ -613,6 +657,7 @@ sub _parse {
 		$self->_treeNodeAppend(\@context,Q_ELEMENT);
 	    } elsif (@context[@context - 1]->[0] eq Q_ELEMENTS) {
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
+	    } elsif (@context[@context - 1]->[0] eq Q_NAMESPACE) {
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");
 	    }
@@ -631,6 +676,7 @@ sub _parse {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
 	} elsif ($token->{type} eq TOK_EQ ||
+		 $token->{type} eq TOK_NEQ||
 		 $token->{type} eq TOK_LE ||
 		 $token->{type} eq TOK_LT ||
 		 $token->{type} eq TOK_GE ||
@@ -642,7 +688,6 @@ sub _parse {
 		my $node = $self->_treeNode(\@context);
 		$node->{+Q_RELATION}->[0] = $token->{value};
 		$self->_treeNodeAppend(\@context, Q_PATH);
-		$self->_treeNodeAppend(\@context, Q_CLASSPATH);
 		$self->_treeNodeAppend(\@context, Q_ELEMENTS);
 		$self->_treeNodeAppend(\@context, Q_ELEMENT);
 	    } else {
@@ -678,13 +723,22 @@ sub _parse {
 		unless ($tokens->[$i+1]->{type} eq TOK_LPAREN) {
 		    $self->_treeNodeAppend(\@context,Q_MATCH);
 		    $self->_treeNodeAppend(\@context,Q_PATH);
-		    $self->_treeNodeAppend(\@context, Q_CLASSPATH);
 		    $self->_treeNodeAppend(\@context, Q_ELEMENTS);
 		    $self->_treeNodeAppend(\@context, Q_ELEMENT);
 		}
 	    } else {
 		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
 	    }
+	} elsif ($token->{type} eq TOK_USE) {
+	    until (@context == 0 || @context[@context - 1]->[0] eq Q_QUERY) {
+		pop @context
+	    }
+	    if (@context > 0) {
+		$self->_treeNodeAppend(\@context, Q_NAMESPACE);
+	    } else {
+		_errSyntax ($tokens, $i, \@context, "Unexpected token");		
+	    }
+	} elsif ($token->{type} eq TOK_FOR) {
 	} elsif ($token->{type} eq TOK_AND ||
 		 $token->{type} eq TOK_OR) {
 	    
@@ -704,7 +758,6 @@ sub _parse {
 		unless ($tokens->[$i+1]->{type} eq TOK_LPAREN) {
 		    $self->_treeNodeAppend(\@context,Q_MATCH);
 		    $self->_treeNodeAppend(\@context,Q_PATH);
-		    $self->_treeNodeAppend(\@context, Q_CLASSPATH);
 		    $self->_treeNodeAppend(\@context, Q_ELEMENTS);
 		    $self->_treeNodeAppend(\@context, Q_ELEMENT);
 		}
@@ -876,6 +929,14 @@ This means: get all paths in the graph described in B<from> section and exclude 
 
 First, rdf:type can be queried in this way:
 
+  Select ?x, ?y From ?x::?y
+
+instead of
+
+  Select ?x, ?y From ?x.rdf:type{?y}
+
+and we can append properties to this statement. This allows us to say "someone's (he is a writer, by the way) name":
+
   Select ?x 
   From ?x.ns:author{?author}, ?author.ns:birth{?birth}
   Where ?author::clss:Writer.name = 'Lewis'
@@ -923,9 +984,12 @@ For each n-tuple ?x.ns:title and ?author.ns:name are evaluated and the pair of v
 
 B<Names and URIs>
 
-'ns:name' is a shortcut for URI, let's say 'http://myApp.gingerall.org/ns#name'. To map names to URIs, we use %namespaces. Each key-value pair of the hash contains namespace prefix and URI it represents. Each prefix:name is evaluated to URI as $namespaces{prefix}.name. If prefix is not present, $namespaces{Default} is taken. URIs can be typed explicitly in square brackets. 
+'ns:name' is a shortcut for URI. Each B<prefix:name> is evaluated to URI as B<prefix value> concatenated with B<name>. If prefix is not present, prefix B<Default> is taken. There are two ways to assign a namespace prefix to its value. You can specify prefix and its value in Evaluator's option Namespaces. This is a global setting, which applies to all queries evaluated by Query object. Locally you can set namespaces in each select, using B<USE> clause. This overrides global settings for the current select. URIs can be typed explicitly in square brackets. The following queries are equivalent:
 
   Select ?x from ?x.[http://myApp.gingerall.org/ns#name]
+
+  Select ?x from ?x.ns:name
+  Use ns For [http://myApp.gingerall.org/ns#]
 
 B<Functions>
 
@@ -950,6 +1014,40 @@ Now we can restate the condition with variants to a condition with a function ca
   Where ?author.subproperty(publication).published < '1938'
 
 We consider we have apropriate schema where book, booklet, article etc. are (direct or indirect) rdfs:subPropertyOf publication.
+
+=head2 A BNF diagram for query language
+
+  <query>	::= Select <resultset> From <source> [Where <condition>]
+                    ["Use" <namespaces>]
+  <resultset>	::= <elementpath>{","<elementpath>}
+  <source>	::= <sourcepath>{","<sourcepath>}
+  <sourcepath>	::= <element>[ "{" <variable> "}" ]
+                    ["::"<element>[ "{" <variable> "}" ]]
+                    {"."<element>[ "{" <variable> "}" ]} 
+		    ["=>"<element> | <expression>]
+  <condition>	::= <match> | <condition> <connection> <condition> 
+                    {<connection> <condition>} 
+		    | "(" <condition> ")"
+  <namespaces>  ::= <name> ["For"] "["<uri>"]" { "," <name> [for] "["<uri>"]"}
+  <match>	::= <path> [<relation> <path>]
+  <path>	::= <classpath>{"."<elements>} | <expression>
+  <classpath>   ::= <elements>["::"<elements>]
+  <elements>	::= <element> | "(" <element>  {"," <element>} ")"
+  <elementpath>	::= <element>{"."<element>} | <expression>
+  <element>	::= <variable> | <node> | <function> 
+  <function>	::= <name> "(" <elementpath>["," <elementpath>] ")"
+  <node>	::= "[" <uri> "]" | "[" "_:" <name> "]" | [<name>":"]<name>
+  <variable>	::= "?"<name>
+  <name>	::= [a-zA-Z_][a-zA-Z0-9_]
+  <expression>	::= <literal> | <expression> <operation> <expression> 
+                    {<operation> <expression>}
+		    | "(" <expression> ")"
+  <connection>	::= and | or
+  <relation>	::= "=" | "<" | ">"
+  <operation>	::= "|"
+  <literal>	::= """{any_character}""" | "'"{any_character}"'" 
+  <uri>		::= absolute uri resource, see uri specification
+
 
 =head1 LICENSE
 

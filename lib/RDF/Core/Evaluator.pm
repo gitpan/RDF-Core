@@ -49,9 +49,10 @@ use constant Q_SOURCEPATH   => RDF::Core::Query::Q_SOURCEPATH;
 use constant Q_HASTARGET    => RDF::Core::Query::Q_HASTARGET;
 use constant Q_TARGET       => RDF::Core::Query::Q_TARGET;
 use constant Q_CONDITION    => RDF::Core::Query::Q_CONDITION;
+use constant Q_NAMESPACE    => RDF::Core::Query::Q_NAMESPACE;
 use constant Q_MATCH        => RDF::Core::Query::Q_MATCH;
 use constant Q_PATH         => RDF::Core::Query::Q_PATH;
-use constant Q_CLASSPATH    => RDF::Core::Query::Q_CLASSPATH;
+use constant Q_CLASS        => RDF::Core::Query::Q_CLASS;
 use constant Q_ELEMENTS     => RDF::Core::Query::Q_ELEMENTS;
 use constant Q_ELEMENTPATH  => RDF::Core::Query::Q_ELEMENTPATH;
 use constant Q_ELEMENT      => RDF::Core::Query::Q_ELEMENT;
@@ -94,6 +95,7 @@ sub evaluate {
     my ($self, $query) = @_;
     my $rs;
     my $descr;
+    $self->_namespaces($query);
     ($rs,$descr) = $self->_prepareResultSet($query);
     $self->_applyConditions($rs, $descr, $query);
     $self->_formatResult($rs, $descr, $query);
@@ -121,12 +123,28 @@ sub _prepareResultSet {
 	    $description = $descriptions->[$idx] = {};
 	    $rs = $resultSets->[$idx] = [[undef]];
 	}
+
+	#process $subject - a beginning of the path
 	my $subject = $self->_extractElement($_->{+Q_ELEMENT}->[0],
 					     $_->{+Q_VARIABLE}->[0]->
 					     {+Q_NAME}->[0]);
 	if ($subject->[0]{type} eq Q_FUNCTION) {
 	    $self->_funcParams($rs,$description,undef,$_->{+Q_ELEMENT}->[0]);
 	}
+	#process class info (rdf:type)
+	if (exists $_->{+Q_CLASS}) {
+	    my $type = $self->getOptions->{Factory}->
+	      newResource(RDF_NS, 'type');
+	    my $class = $self->_extractElement
+	      ($_->{+Q_CLASS}->[0]->{+Q_ELEMENT}->[0], 
+	       $_->{+Q_CLASS}->[0]->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0]);
+	    $self->_funcParams($rs,$description,undef, $_->{+Q_CLASS}->[0])
+	      if $class->[0]{type} eq Q_FUNCTION;
+	    $self->_expandResult($rs, $description, $subject, 
+				 [{object=>$type}], $class);
+	}
+
+	#process $element - the first property found on the path
 	my $element;
 	if (exists $_->{+Q_ELEMENT}->[1] ) {
 	    $element = $self->_extractElement($_->{+Q_ELEMENT}->[1],
@@ -134,6 +152,8 @@ sub _prepareResultSet {
 					      {+Q_NAME}->[0]);
 	    $self->_funcParams($rs,$description,$subject,$_->{+Q_ELEMENT}->[1])
 	      if $element->[0]{type} eq Q_FUNCTION;
+
+	    #if the path has only one property and leads to target,process here
 	    if ($_->{+Q_HASTARGET} && @{$_->{+Q_ELEMENT}} == 2) {
 		my $target;
 		if ($_->{+Q_TARGET}[0]{+Q_EXPRESSION}) {
@@ -143,7 +163,7 @@ sub _prepareResultSet {
 		} else {
 		    $target =  $self->_extractElement
 		      ($_->{+Q_TARGET}[0],undef);
-		    $self->_funcParams($rs,$description,$subject,
+		    $self->_funcParams($rs,$description,undef,
 				       $_->{+Q_TARGET}->[0])
 		      if $target->[0]{type} eq Q_FUNCTION;
 		}
@@ -156,6 +176,7 @@ sub _prepareResultSet {
 	} else {
 	    $self->_singularResult($rs, $description, $subject);
 	}
+	
 	for (my $i = 2; $i < @{$_->{+Q_ELEMENT}} ; $i++) {
 	    #iterate through sourcepath elements
 	    #make "step" over the element
@@ -170,7 +191,7 @@ sub _prepareResultSet {
 		my $target =  $self->
 		  _extractElement($_->{+Q_TARGET}->[0], undef);
 		
-		$self->_funcParams($rs,$description,$subject,
+		$self->_funcParams($rs,$description,undef,
 				   $_->{+Q_TARGET}->[0])
 		  if $target->[0]{type} eq Q_FUNCTION;
 		
@@ -275,10 +296,19 @@ sub _singularResult {
 	my %res;
 	my %lit;
 	foreach my $element (@$elements) {
+	    #check for conflict between bound variables and values
 	    next unless $self->_bindingPreCheck($rs->[$i],
 						$description,$element);
-	    unless (defined $element->{object} && 
-		    $element->{object}->isLiteral) {
+	    #return current result set if variable is already resolved
+	    # - this doesn't work with binding
+#	    return @$rs if $self->_evalVar($rs->[$i],$description,
+#					   $element->{name}, 'RELAX');
+	
+	    #what does the next statement mean?
+#	    next if $element->{type} eq Q_NODE && 
+#	      defined $element->{object} && 
+#		$element->{object}->isLiteral;
+
 		my $found = $self->_getStmts($rs->[$i], $description, 
 					     $element, undef, undef);
 		foreach my $enum (@{$found}) {
@@ -316,7 +346,7 @@ sub _singularResult {
 		    }
 		    $enum->close;
 		}
-	    }
+
 	    
 	    my $found = $self->_getStmts($rs->[$i], $description, 
 					 undef, undef, $element);
@@ -381,16 +411,18 @@ sub _extractElement {
 	      newResource($element->{name});
 	} elsif (my $name = $node->{+Q_NODE}->[0]->{+Q_NAME}) {
 	    if (@$name > 1) {
-		$element->{name} = $self->getOptions->{Namespaces}->
-		  {$name->[0]}.$name->[1];
-		$element->{object} =  $self->getOptions->{Factory}->
-		  newResource($element->{name});
+		my $ns = $self->getOptions->{_localNamespaces}->{$name->[0]};
+		$ns = $self->getOptions->{Namespaces}->{$name->[0]}
+		  unless defined $ns;
+		$element->{name} = $ns.$name->[1];
 	    } else {
-		$element->{name} = $self->getOptions->{Namespaces}->
-		  {Default}.$name->[0];
-		$element->{object} =  $self->getOptions->{Factory}->
-		  newResource($element->{name});
+		my $ns = $self->getOptions->{_localNamespaces}->{Default};
+		$ns = $self->getOptions->{Namespaces}->{Default}
+		  unless defined $ns;
+		$element->{name} = $ns.$name->[0];
 	    }
+	    $element->{object} =  $self->getOptions->{Factory}->
+	      newResource($element->{name});
 	}
 	$element->{binding} = $binding if defined $binding;
 	push @$elements, $element;
@@ -619,21 +651,22 @@ sub _evalPath {
     my ($self, $row, $descr, $path) = @_;
     my @values;
     
+    #If the path is a literal expression, return it's value
     if (exists $path->{+Q_EXPRESSION}) {
 	my $value = $self->_evalExpression($row, $descr, 
 					   $path->{+Q_EXPRESSION}->[0]);
 	return [$value];
     }
+    
+    #Otherwise evaluate resources ($roots)
     my $roots;
-    my $skipFirstElement;
-    if (exists $path->{+Q_CLASSPATH}) {
-	$roots = $self->_extractElement($path->{+Q_CLASSPATH}[0]
-					{+Q_ELEMENTS}[0]);
+    my $pathAtom;
+    if (exists $path->{+Q_ELEMENTS}) {
+	$pathAtom = Q_ELEMENTS;
     } elsif (exists $path->{+Q_ELEMENT}) {
-	$roots = $self->_extractElement($path->{+Q_ELEMENT}[0]);
-	$skipFirstElement = 1;
-	
+	$pathAtom = Q_ELEMENT;
     }
+    $roots = $self->_extractElement($path->{$pathAtom}[0]);
     my $newRoots = [];
     foreach my $inst (@$roots) {
 	if ($inst->{type} eq Q_VARIABLE) {
@@ -652,17 +685,14 @@ sub _evalPath {
 	}
 	$roots = $newRoots;
     }
-    if (exists $path->{+Q_CLASSPATH} && 
-	exists $path->{+Q_CLASSPATH}->[0]->{+Q_ELEMENTS}->[1]) {
-	# Check classpath (rdf:type) 
+    if (exists $path->{+Q_CLASS}) {
+	# Check class (rdf:type) 
 	my $passed = 0;
-	my $classpath = $path->{+Q_CLASSPATH}->[0];
+	my $class = $path->{+Q_CLASS}->[0];
 	my $type = $self->getOptions->{Factory}->
 	  newResource(RDF_NS, 'type');
 	foreach my $inst (@$roots) {
-	    my $classes = $self->_extractElement($classpath->
-						 {
-						  +Q_ELEMENTS}->[1]);
+	    my $classes = $self->_extractElement($class->{$pathAtom}->[0]);
 	    foreach my $class (@$classes) {
 		if ($inst->{type} eq Q_VARIABLE) {
 		    $inst->{object} = $self->_evalVar($row, $descr, 
@@ -682,32 +712,33 @@ sub _evalPath {
 	}
 	return [] unless $passed;
     }
-    my $node;
-    if (($node = $path->{+Q_ELEMENTS}) || ($node = $path->{+Q_ELEMENT})) {
-	foreach (@$node) {
-	    if ($skipFirstElement) {
-		$skipFirstElement = 0;
-		next;
-	    }
-	    my $newRoots = [];
-	    my $element = $self->_extractElement($_);
-	    foreach my $subj (@$roots) {
-		foreach my $pred (@$element) {
-		    my $found = $self->_getStmts($row, $descr, 
-						 $subj,$pred,undef);
-		    foreach my $enum (@{$found}) {
-			while (my $st = $enum->getNext) {
-			    my $root = {};
-			    $root->{object} = $st->getObject;
-			    push (@$newRoots, $root);
-			}
-			$enum->close;
+    my $node = $path->{$pathAtom};
+    my $skipFirstElement = 1;
+    foreach (@$node) {
+	if ($skipFirstElement) {
+	    #skip first element (it's processed already)
+	    $skipFirstElement = 0;
+	    next;
+	}
+	my $newRoots = [];
+	my $element = $self->_extractElement($_);
+	foreach my $subj (@$roots) {
+	    foreach my $pred (@$element) {
+		my $found = $self->_getStmts($row, $descr, 
+					     $subj,$pred,undef);
+		foreach my $enum (@{$found}) {
+		    while (my $st = $enum->getNext) {
+			my $root = {};
+			$root->{object} = $st->getObject;
+			push (@$newRoots, $root);
 		    }
+		    $enum->close;
 		}
 	    }
-	    $roots = $newRoots;
 	}
-    } 
+	$roots = $newRoots;
+    }
+    
     my %lit;
     my %res;
     foreach (@$roots) {
@@ -785,6 +816,14 @@ sub _getStmts {
 		foreach my $object (@objects) {
 		    push @retValEnum, $self->getOptions->{Model}->
 		      getStmts($subject, $predicate, $object);
+		    warn "Getting \n\t",
+		    $subject ? $subject->getLabel : 'undef',"\n\t", 
+		    $predicate ? $predicate->getLabel : 'undef',"\n\t", 
+		    $object ? $object->getLabel : 'undef',"\n"
+		      if $self->getOptions->{Debug};
+		    warn "Got ",$self->getOptions->{Model}->
+		      countStmts($subject, $predicate, $object)," statements\n"
+			if $self->getOptions->{Debug};
 		}
 	    }
 	}
@@ -845,6 +884,18 @@ sub _evalExpression {
 ############################################################
 # Utils
 
+sub _namespaces {
+    my ($self, $query) = @_;
+    my $namespaces = {};
+    $self->getOptions()->{_localNamespaces} = $namespaces;
+    return unless $query->{+Q_NAMESPACE} && $query->{+Q_NAMESPACE}[0]{+Q_NAME};
+
+    my $query_ns =  $query->{+Q_NAMESPACE}[0];
+    for (my $i = 0; $i < @{$query_ns->{+Q_NAME}}; $i++) {
+	$namespaces->{$query_ns->{+Q_NAME}[$i]} = $query_ns->{+Q_URI}[$i];
+    }
+    $self->getOptions()->{_localNamespaces} = $namespaces;
+}
 sub _relation {
     #Compare two nodes in graph
     my ($lval, $rval, $rel) = @_;
@@ -856,6 +907,9 @@ sub _relation {
     if ($rel eq '=') {
 	$retVal = 1 if $lval->isLiteral == $rval->isLiteral &&
 	  $lval->getLabel eq $rval->getLabel;
+    } elsif ($rel eq '!=') {
+	$retVal = 1 if $lval->isLiteral != $rval->isLiteral ||
+	  !($lval->getLabel eq $rval->getLabel);
     } elsif ($rel eq '<=') {
 	$retVal = 1 if $lval->isLiteral && $rval->isLiteral &&
 	  $lval->getLabel le $rval->getLabel;

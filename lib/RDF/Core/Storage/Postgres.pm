@@ -47,6 +47,8 @@ use RDF::Core::Enumerator::Postgres;
 ############################################################
 # constants
 
+use constant RDF_CORE_UNDEFINED => 0;
+
 use constant RDF_CORE_DB_DONT_CREATE => 0;
 use constant RDF_CORE_DB_CREATE => 1;
 
@@ -55,6 +57,10 @@ use constant RDF_CORE_SELECT_OBJECT_LIT => 2;
 
 use constant RDF_CORE_SELECT_DATA => 1;
 use constant RDF_CORE_EXISTS_ONLY => 2;
+
+use constant RDF_CORE_COUNT_ONLY => 1;
+use constant RDF_CORE_DATA => 2;
+
 
 ############################################################
 # constructor
@@ -126,26 +132,38 @@ sub _getStmt {
 }
 
 sub _buildSelect {
-    my ($self, $subj, $pred, $obj) = @_; 
+    my ($self, $subj, $pred, $obj, %switches) = @_; 
     my $rval;
+
     if ($obj) {
-	$rval = $self->_buildSelect2($subj, $pred, $obj, 0);
+	$rval = $self->_buildSelect2($subj, $pred, $obj,
+					 ( class => RDF_CORE_SELECT_OBJECT_RES,
+					   count => $switches{count},));
     } else {
 	my $rval1 = $self->_buildSelect2($subj, $pred, $obj,
-					 RDF_CORE_SELECT_OBJECT_RES);
+					 ( class => RDF_CORE_SELECT_OBJECT_RES,
+					   count => $switches{count},));
 	my $rval2 = $self->_buildSelect2($subj, $pred, $obj,
-					 RDF_CORE_SELECT_OBJECT_LIT);
+					 ( class => RDF_CORE_SELECT_OBJECT_LIT,
+					   count => $switches{count},));
 	$rval2 =~ s/'1'/'4'/;	
 	$rval2 =~ s/'2'/'5'/;
 	$rval2 =~ s/'3'/'6'/;
-	$rval = $rval1."\nunion\n".$rval2;
-    }
+	if ($switches{count} == RDF_CORE_COUNT_ONLY) {
+	    $rval = "select ($rval1) + \n ($rval2)";
+	} else {
+	    $rval = "$rval1 \n union \n $rval2";
+	}
+    };
     return $rval;
 };
 
 sub _buildSelect2 {
-    my ($self, $subj, $pred, $obj, $switch) = @_;
+    my ($self, $subj, $pred, $obj, %switches) = @_;
     
+    $switches{class} = RDF_CORE_UNDEFINED unless $switches{class};
+    $switches{count} = RDF_CORE_COUNT_ONLY unless $switches{count};
+
     my $select_subj = 'n1.namespace, r1.local_name';
     my $select_pred = 'n2.namespace, r2.local_name';
     my $select_obj_res = 'n3.namespace, r3.local_name, null';
@@ -167,12 +185,16 @@ sub _buildSelect2 {
     # construction of 'select' part
     my $select_obj = $obj ? 
       ($obj->isLiteral() ? $select_obj_lit : $select_obj_res) :
-	($switch == RDF_CORE_SELECT_OBJECT_RES ? $select_obj_res : $select_obj_lit);
-    my $s = 'select '.join (', ', ($select_subj, $select_pred, $select_obj))."\n";
-    
+	($switches{class} == RDF_CORE_SELECT_OBJECT_RES ? $select_obj_res : $select_obj_lit);
+    my $s;
+    if ($switches{count} == RDF_CORE_COUNT_ONLY) {
+	$s = "select count(*)\n";
+    } else {
+	$s = 'select '.join (', ', ($select_subj, $select_pred, $select_obj))."\n";
+    };    
     # construction of 'from' part
     $s = $s . 'from '.join (', ', ('rdf_statement s', $from_subj, $from_pred));
-    if ((!$obj && ($switch == RDF_CORE_SELECT_OBJECT_RES)) || 
+    if ((!$obj && ($switches{class} == RDF_CORE_SELECT_OBJECT_RES)) || 
 	($obj && !$obj->isLiteral())) {
 	$s = join (', ', ($s, $from_obj_res));
     };
@@ -187,7 +209,7 @@ sub _buildSelect2 {
     # object
     my $where_obj = $obj ? 
       ($obj->isLiteral() ? $where_obj_lit_param : join (' and ', ($where_obj_res_param, $where_obj_res_join))) : 
-	($switch == RDF_CORE_SELECT_OBJECT_RES ? $where_obj_res_join : ' s.object_lit is not null');
+	($switches{class} == RDF_CORE_SELECT_OBJECT_RES ? $where_obj_res_join : ' s.object_lit is not null');
     $s = join (' and ', ($s, $where_obj));
     return $s;
 };
@@ -195,12 +217,15 @@ sub _buildSelect2 {
 
 
 sub _getStmts {
-    my ($self, $subject, $predicate, $object, $switch) = @_;
+    my ($self, $subject, $predicate, $object, %switches) = @_;
 
-    $switch = $switch ? $switch : RDF_CORE_SELECT_DATA;
+    $switches{target} = RDF_CORE_SELECT_DATA unless $switches{target};
+    $switches{count} = RDF_CORE_COUNT_ONLY unless $switches{count};
 
-    my $s = $self->_buildSelect($subject, $predicate, $object);
-    if ($switch == RDF_CORE_EXISTS_ONLY) {
+    my $s = $self->_buildSelect($subject, $predicate, $object, 
+				( count => $switches{count} ));
+
+    if ($switches{target} == RDF_CORE_EXISTS_ONLY) {
 	if ($subject || $predicate || $object) {
 	    $s = 'select exists ( ' . $s . ' )';
 	} else {
@@ -214,8 +239,8 @@ sub _getStmts {
     my $i=1;
     $sth->bind_param($i++,$self->_getModelId); #model
 
-    if (($switch == RDF_CORE_SELECT_DATA) ||
-	(($switch == RDF_CORE_EXISTS_ONLY) && 
+    if (($switches{target} == RDF_CORE_SELECT_DATA) ||
+	(($switches{target} == RDF_CORE_EXISTS_ONLY) && 
 	 ($subject || $predicate || $object))) {
 
 	if ($subject) { 
@@ -297,25 +322,35 @@ sub existsStmt {
 #    return (_getStmt ($self, $stmt, RDF_CORE_DB_DONT_CREATE) > 0);
     my ($self, $subject, $predicate, $object) = @_;    
     my $sth = $self->_getStmts($subject, $predicate, $object, 
-			       RDF_CORE_EXISTS_ONLY);
+			       ( target => RDF_CORE_SELECT_DATA,
+				 count => RDF_CORE_DATA, ));
     my @row = $sth->fetchrow_array;      
     return $row[0];
 }
 
 sub getStmts {
     my ($self, $subject, $predicate, $object) = @_;
-    my $sth = $self->_getStmts($subject, $predicate, $object);
+    my $sth = $self->_getStmts($subject, $predicate, $object,
+			       ( target => RDF_CORE_SELECT_DATA,
+				 count => RDF_CORE_DATA, ));
     return new RDF::Core::Enumerator::Postgres( (Cursor  => $sth) );
 }
 
 sub countStmts {
-    my $self = shift;
-    my $sql = 'select count(*) from rdf_statement where model_id = ?';
-    my $sth = $self->_getDBHandle()->prepare($sql);
-    $sth->bind_param(1, $self->_getModelId);
-    $sth->execute();		
+    my ($self, $subject, $predicate, $object) = @_;   
+
+    my $sth = $self->_getStmts($subject, $predicate, $object,
+			       ( target => RDF_CORE_SELECT_DATA,
+				 count => RDF_CORE_COUNT_ONLY, ));
+#    $sth->execute();		
     my @row = $sth->fetchrow_array;      
     return $row[0];
+#    my $sql = 'select count(*) from rdf_statement where model_id = ?';
+#    my $sth = $self->_getDBHandle()->prepare($sql);
+#    $sth->bind_param(1, $self->_getModelId);
+#    $sth->execute();		
+#    my @row = $sth->fetchrow_array;      
+#    return $row[0];
 }
 
 sub getNewResourceId {

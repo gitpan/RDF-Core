@@ -1,6 +1,5 @@
 Changes
 MANIFEST
-README
 Makefile.PL
 test.pl
 upd-doc.sh
