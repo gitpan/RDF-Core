@@ -42,6 +42,7 @@ sub new {
     my ($pkg,%options) = @_;
     $pkg = ref $pkg || $pkg;
     my $self = {};
+    carp "InlineURI parameter is deprecated" if $self->{_options}->{InlineURI};
     #Implemented options are:
     #getNamespaces, getSubjects, getStatements, existsStatement callback functions
     #output - output filehandle reference (a reference to a typeglob or FileHandle) or scalar variable reference (default \*STDOUT)
@@ -49,9 +50,7 @@ sub new {
     $self->{_options}->{Output} = \*STDOUT
       unless defined $self->{_options}->{Output};
     $self->{_options}->{BaseURI};
-    $self->{_options}->{InlineURI} = '_:'
-      unless defined  $self->{_options}->{InlineURI};
-    $self->{_options}->{InlinePrefix} ||= '_:a'
+    $self->{_options}->{InlinePrefix} ||= 'genid'
       unless defined $self->{_options}->{InlinePrefix};
     $self->{_descriptions} = undef;
     $self->{_namespaces} = undef;
@@ -60,10 +59,6 @@ sub new {
     $self->{_anonym} = undef;
     bless $self, $pkg;
 }
-#  sub setOptions {
-#      my ($self,$options) = @_;
-#      $self->{_options} = $options;
-#  }
   sub getOptions {
       my $self = shift;
       return $self->{_options};
@@ -97,6 +92,10 @@ sub getSubjects {
 sub getStatements {
     my $self = shift;
     return &{$self->getOptions->{getStatements}}(@_);
+}
+sub countStatements {
+    my $self = shift;
+    return &{$self->getOptions->{countStatements}}(@_);
 }
 sub existsStatement {
     my $self = shift;
@@ -175,29 +174,31 @@ sub _descriptionOpen {
     my $idAboutAttr;
     #Anonymous subject can be serialized as anonymous if it's an object of one or zero statements
     #and the referencing statement's subject has already been opened
-    my $InlineURI = $self->getOptions->{InlineURI};
+    my $InlineURI = "_:";
     my $baseURI = $self->getOptions->{BaseURI};
-    if ($InlineURI && $subjectID =~ /^$InlineURI/i) {
-	if ($self->{_recursionlvl} || !$self->existsStatement(undef,undef,$description->[0])) {
-	    $idAboutAttr = ''
+    if ($subjectID =~ /^$InlineURI/i) {
+	my $cnt = $self->countStatements(undef,undef,$description->[0]);
+	if (!$cnt || ($self->{_recursionlvl} && $cnt < 2)){
+	    $idAboutAttr = '';
 	} else {
 	    #deanonymize resource
 	    my $idNew = $self->getOptions->{InlinePrefix}.$self->{idAttr}++;
 	    $idAboutAttr = " ID=\"$idNew\"";
+	    carp "Giving attribute $idAboutAttr to blank node $subjectID.";
 	    #store its ID to reference it in other statements
 	    $self->{_anonym}->{$subjectID} = '#'.$idNew;
 	}
     } elsif ($baseURI && $subjectID =~ /^$baseURI/i) {
 	#relative URI - choose whether idAttr or aboutAttr should be produced
 	#suggestion - produce aboutAttr every time
-	#TODO - synchronize this with isuue rdfms-difference-between-ID-and-about
+	#TODO-synchronize this with isuue rdfms-difference-between-ID-and-about
 	my $id = $';
 #	$id =~ s/^#//
 #	  if $baseURI !~ /#$/;
-	$idAboutAttr = " about=\"$'\"";
+	$idAboutAttr = " rdf:about=\"$'\"";
     } else {
 	#absolute URI - produce aboutAttr
-	$idAboutAttr = " about=\"$subjectID\"";
+	$idAboutAttr = " rdf:about=\"$subjectID\"";
     }
     $self->_print ("<rdf:Description$idAboutAttr>\n");
     $self->{_recursionlvl}++;
@@ -215,7 +216,12 @@ sub _predicateOpen {
     my $propName = $prefix . ":".$statement->getPredicate->getLocalValue;
     my $propertyElt;
     if ($statement->getObject->isLiteral) {
-	$propertyElt="<$propName>";
+	#don't express xml:lang if not necessary
+	my $lang = $statement->getObject->getLang ? 
+	  " xml:lang=\"".($statement->getObject->getLang)."\"" : "";
+	my $datatype = $statement->getObject->getDatatype ? 
+	  " rdf:datatype=\"".$statement->getObject->getDatatype."\"" : "";
+	$propertyElt="<${propName}${lang}${datatype}>";
     } else {
 	if ($inline) {
 	    $propertyElt="<$propName>\n";
@@ -302,7 +308,7 @@ RDF::Core::Serializer - produce XML code for RDF model
 
 =head1 DESCRIPTION
 
-Serializer takes RDF data provided by handlers and generates a XML document. Besides the trivial job of generating one description for one statement the serializer attempts to group statements with common subject into one description and makes referenced descriptions nested into referencing ones. Using baseURI and InlineURI options helps to keep relative and anonymous resources instead of making them absolute and persistent.
+Serializer takes RDF data provided by handlers and generates a XML document. Besides the trivial job of generating one description for one statement the serializer attempts to group statements with common subject into one description and makes referenced descriptions nested into referencing ones. Using baseURI option helps to keep relative resources instead of making them absolute. Blank nodes are preserved where possible, though the new rdf:nodeID attribute production is not implemented yet.
 
 =head2 Interface
 
@@ -341,11 +347,11 @@ A base URI of a document that is created. If a subject of a statement matches th
 
 =item * InlineURI
 
-If a subject matches an InlineURI option, serializer attempts to generate an anonymous description. (The description has not about neither ID attribute.) If it's not possible (imagine an anonymous resource which points to itself, or some circularly dependent anonymous resources etc.), an ID attribute is generated using InlinePrefix and a counter. The default value is '_:'.
+Deprecated.
 
 =item * InlinePrefix
 
-If an anonymous description is to be generated and need is to give it ID attribute (see InlineURI), the attribute will be InlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is '_:a'.
+If an anonymous description is to be generated and need is to give it ID attribute, the attribute will be InlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is 'genid'. This is wrong practice and will be replaced by rdf:nodeID usage in next versions. Warning is generated when this occurs.
 
 =back
 
@@ -362,6 +368,8 @@ B<getSubjects> should return an array of references, each reference pointing to 
 B<getNamespaces> should return a hash reference where keys are namespaces and values are namespace prefixes. There must be a rdf namespace present with value 'rdf'
 
 B<getStatements($subject, $predicate, $object)> should return all statements that match given mask. That is the statements' subject is equal to $subject or $subject is not defined and the same for predicate and subject. Return value is a reference to RDF::Core::Enumerator object.
+
+B<getStatements($subject, $predicate, $object)> should return number of statements that match given mask.
 
 B<existsStatement($subject, $predicate, $object)> should return true if exists statement that matches given mask and false otherwise.
 

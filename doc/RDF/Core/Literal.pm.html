@@ -39,13 +39,21 @@
 <P>
 <HR>
 <H1><A NAME="description">DESCRIPTION</A></H1>
-<P>Is inherited from RDF::Core::Node</P>
+<P>Is inherited from RDF::Core::Node, you can specify it's language and datatype URI.</P>
 <P>
 <H2><A NAME="interface">Interface</A></H2>
 <UL>
 <LI><STRONG><A NAME="item_new"><CODE>new($value)</CODE></A></STRONG><BR>
 
-<LI><STRONG><A NAME="item_getValue">getValue</A></STRONG><BR>
+<LI><STRONG>new($value, $language)</STRONG><BR>
+
+<LI><STRONG>new($value, $language, $datatype)</STRONG><BR>
+
+<LI><STRONG><A NAME="item_getValue"><CODE>getValue()</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_getLang"><CODE>getLang()</CODE></A></STRONG><BR>
+
+<LI><STRONG><A NAME="item_getDatatype"><CODE>getDatatype()</CODE></A></STRONG><BR>
 
 </UL>
 <P>

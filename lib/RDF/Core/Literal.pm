@@ -44,21 +44,32 @@ require RDF::Core::Node;
 
 
 sub new {
-    my ($pkg,$value)=@_;
+    my ($pkg, $value, $lang, $datatype)=@_;
     $pkg = ref $pkg || $pkg;
     my $self={};
 
     $self->{_value}=$value;
+    $self->{_lang}=$lang;
+    $self->{_datatype}=$datatype;
     bless $self,$pkg;
 }
 sub getValue {
     return $_[0]->{_value};
 }
+sub getLang {
+    return $_[0]->{_lang};
+}
+sub getDatatype {
+    return $_[0]->{_datatype};
+}
 #Override inherited method
 sub getLabel {
     return $_[0]->getValue;
 }
-
+sub clone {
+    my $self = shift;
+    return $self->new($self->{_value}, $self->{_lang}, $self->{_datatype});
+}
 1;
 __END__
 
@@ -75,7 +86,7 @@ RDF::Core::Literal - a literal value for RDF statement
 
 =head1 DESCRIPTION
 
-Is inherited from RDF::Core::Node
+Is inherited from RDF::Core::Node, you can specify it's language and datatype URI.
 
 =head2 Interface
 
@@ -83,7 +94,15 @@ Is inherited from RDF::Core::Node
 
 =item * new($value)
 
-=item * getValue
+=item * new($value, $language)
+
+=item * new($value, $language, $datatype)
+
+=item * getValue()
+
+=item * getLang()
+
+=item * getDatatype()
 
 =back
 

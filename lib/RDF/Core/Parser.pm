@@ -34,17 +34,18 @@
 package RDF::Core::Parser;
 
 use strict;
-use Data::Dumper;
 
 require URI;
 require XML::Parser;
 
 use RDF::Core::Constants qw (:xml :rdf);
+use Carp;
 
 ########################################
 # constants
 use constant PARSE_LITERAL   => "Literal";
 use constant PARSE_RESOURCE  => "Resource";
+use constant PARSE_COLLECTION  => "Collection";
 
 use constant F_IDLE       => 0;
 use constant F_PARSING    => 1;
@@ -82,11 +83,11 @@ use constant NODE_PROPERTY_1 => 64;  #simple w/ value
 use constant NODE_PROPERTY_2 => 128; #simple literal
 use constant NODE_PROPERTY_3 => 256; #parse resource
 use constant NODE_PROPERTY_4 => 512; #with id/resource
-use constant NODE_PROPERTY_MASK => 
-  NODE_PROPERTY_1 | NODE_PROPERTY_2 | NODE_PROPERTY_3 | NODE_PROPERTY_4;
+use constant NODE_PROPERTY_5 => 4096; #parse collection
+use constant NODE_PROPERTY_MASK => NODE_PROPERTY_1 | NODE_PROPERTY_2 | 
+  NODE_PROPERTY_3 | NODE_PROPERTY_4 | NODE_PROPERTY_5;
 
 use constant NODE_TYPED => 1024;
-use constant NODE_MEMBER => 2048;
 
 use constant NODE_OBJ => NODE_DESCRIPTION | NODE_CONTAINER | NODE_TYPED;
 
@@ -102,11 +103,14 @@ our %RDF_TYPENAMES = reverse %RDF_TYPECONST;
 sub new {
     my ($class, %params) = @_;
     $class = ref $class || $class;
+    if ($params{InlineURI}) {
+	carp "InlineURI parameter is deprecated, use BNodePrefix instead";
+    }
     my $self = { 
-		assert => $params{Assert},
+		assert  => $params{Assert},
 		baseuri => $params{BaseURI},
-		strict => $params{STRICT},
-		inlineuri => $params{InlineURI},
+		bnode   => $params{BNodePrefix},
+		nodeid  => {}
 	       };
     bless $self, $class;
     return $self;
@@ -169,6 +173,9 @@ sub _getElementResource {
     if ($element->{resource}) {
 	$ret = $element->{resource};
     }
+    elsif ($element->{nodeid}) {
+	$ret = $self->_getImplicitURI($element->{nodeid});
+    }
     elsif ($element->{rnode}) {
 	$ret = $self->_uri($element->{rnode});
     }
@@ -191,7 +198,8 @@ sub _nsAbbr {
 
 sub _uri {
     my ($self, $element) = @_;
-    return $element->{uri} || ($element->{uri} = $self->_getImplicitURI);
+    return $element->{uri} || 
+      ($element->{uri} = $self->_getImplicitURI($element->{nodeid}));
 }
 
 sub _validFirstLevel {
@@ -233,7 +241,6 @@ sub _doAssert {
     }
 }
 
-use Carp;
 sub _assertReification {
     my ($self, $stmt) = @_;
     #type
@@ -278,6 +285,8 @@ sub _assertReification {
 	$params->{object_name} = $stmt->{object_name} if $stmt->{object_name};
     } else {
 	$params->{object_literal} = $stmt->{object_literal};
+	$params->{object_datatype} = $stmt->{object_datatype};
+	$params->{object_lang} = $stmt->{object_lang};
     }
     $self->_doAssert({}, $params);
 }
@@ -295,14 +304,14 @@ sub _assertAttributes {
 	}
 	#assert
 	my %params = (
-		      #subject_ns => $subject->{ns},
-		      #subject_name => $subject->{name},
 		      subject_uri => $self->_uri($subject),
 		      predicate_ns => $attr->{ns},
 		      predicate_name => $attr->{name},
 		      predicate_uri => $qname,
 		      object_literal => 
 		      defined $attr->{value} ? $attr->{value} : "",
+		      object_lang => $self->_findLang() || "",
+		      object_datatype => "",
 		     );
 	$self->_doAssert($subject, \%params);
     }
@@ -340,23 +349,38 @@ sub _assertRDFAttrs {
 
 sub _assertElement {
     my ($self, $expat, $subject, $element) = @_;
+    my $uri;
 
-    my $uri = $self->_getElementResource($element);
+    if ($element->{type} == NODE_PROPERTY_5) {
+	#Collection - prepare assertion for rdf:nil terminator
+	if ($element->{collast}) {
+	    $subject = {uri=>$$element{collast}};
+	    $element = {ns=>RDF_NS, name=>'rest', qname=>RDF_REST};
+	}
+	$uri=RDF_NIL;
+    } else {
+	#Other then collection properties
+	$uri = $self->_getElementResource($element);
+    }
+
     if ($element->{resource} && __trim($element->{text})) {
 	$expat->xpcroak("predicate has both of resource and literal");
     }
-
+    if ($element->{datatype} && $uri) {
+	$expat->xpcroak("invalid rdf:datatype use");
+    }
     my %object;
     if ($uri) {
 	%object = (object_uri => $uri);
     } else {
 	%object = (object_literal => 
-		   defined $element->{text} ? $element->{text} : "");
+		   defined $element->{text} ? $element->{text} : "",
+		   object_datatype =>$element->{datatype} || "",
+		   object_lang => $self->_findLang($element) || "",
+		  );
     }
 
     my %params = (
-		#  subject_ns => $subject->{ns},
-		#  subject_name => $subject->{name},
 		  subject_uri => $self->_uri($subject),
 		  predicate_ns => $element->{ns},
 		  predicate_name => $element->{name},
@@ -370,8 +394,6 @@ sub _assertElement {
 sub _assertRDFType {
     my ($self, $subject, $type) = @_;
     my %params = (
-		  #subject_ns => $subject->{ns},
-		  #subject_name => $subject->{name},
 		  subject_uri => $self->_uri($subject),
 		  predicate_ns => RDF_NS,
 		  predicate_name => 'type',
@@ -431,6 +453,48 @@ sub _assertAboutEach {
     }
 }
 
+sub _assertCollectionItem {
+    my ($self, $subject, $predicate, $item) = @_;
+
+    my $colItem = $self->_getImplicitURI;
+    if ($predicate->{collast}) {
+	my %params = (
+		      subject_uri => $predicate->{collast},
+		      predicate_ns => RDF_NS,
+		      predicate_name => "rest",
+		      predicate_uri => RDF_REST,
+		      object_uri => $colItem,
+		     );
+	$self->_doAssert({},\%params);
+    } else {
+	my %params = (
+		      subject_uri => $subject->{uri},
+		      predicate_ns => $predicate->{ns},
+		      predicate_name => $predicate->{name},
+		      predicate_uri => $predicate->{qname},
+		      object_uri => $colItem,
+		     );
+	$self->_doAssert($predicate,\%params, $predicate->{uri});
+    }
+    my %params = (
+		  subject_uri => $colItem,
+		  predicate_ns => RDF_NS,
+		  predicate_name => "type",
+		  predicate_uri => RDF_TYPE,
+		  object_uri => RDF_LIST,
+		 );
+    $self->_doAssert({},\%params);
+    my %params = (
+		  subject_uri => $colItem,
+		  predicate_ns => RDF_NS,
+		  predicate_name => "first",
+		  predicate_uri => RDF_FIRST,
+		  object_uri => $item->{uri},
+		 );
+    $self->_doAssert({},\%params);
+    $self->{path}[-1]{collast} = $colItem;
+}
+
 sub _getLIURI {
     my ($self, $subject) = @_;
     #rdf:li element can appear outside rdf:Description element
@@ -448,7 +512,7 @@ sub __trim {
 sub __checkParseType {
     my $element = shift;
     return unless $element->{parsetype};
-    my $re = PARSE_LITERAL . "|" . PARSE_RESOURCE;
+    my $re = PARSE_LITERAL . "|" . PARSE_RESOURCE . "|" . PARSE_COLLECTION;
     $element->{parsetype} = PARSE_LITERAL
       unless $element->{parsetype} =~ /$re/;
 }
@@ -459,22 +523,26 @@ sub _updateElement {
     my $about = delete $$attrs{+RDFA_ABOUT};
     my $abouteach = delete $$attrs{+RDFA_ABOUTEACH};
     my $id = delete $$attrs{+RDFA_ID};
+    my $nodeid = delete $$attrs{+RDFA_NODEID};
     my $bagid = delete $$attrs{+RDFA_BAGID};
     my $parsetype = delete $$attrs{+RDFA_PARSETYPE};
     my $rdftype = delete $$attrs{+RDFA_TYPE};
+    my $datatype = delete $$attrs{+RDFA_DATATYPE};
     my $resource = delete $$attrs{+RDFA_RESOURCE};
     my $xmllang = delete $$attrs{+XMLA_LANG};
     my $xmlbase = delete $$attrs{+XMLA_BASE};
     $element->{about} =  $about ? $about->{value} : undef;
     $element->{abouteach} = $abouteach ? $abouteach->{value} : undef;
     $element->{id} = $id ? $id->{value} : undef;
+    $element->{nodeid} = $nodeid ? $nodeid->{value} : undef;
     $element->{bagid} = $bagid ? $bagid->{value} : undef;
     $element->{bagmembers} = [];
     $element->{parsetype} = $parsetype ? $parsetype->{value} : undef;
     __checkParseType($element);
     $element->{rdftype} = $rdftype ? $rdftype->{value} : undef;
+    $element->{datatype} = $datatype ? $datatype->{value} : undef;
     $element->{resource} = $resource ? $resource->{value} : undef;
-    $element->{xmllang} = $xmllang ? $xmllang->{value} : undef;
+    $element->{lang} = $xmllang ? $xmllang->{value} : undef;
     $element->{baseuri} = $xmlbase ? $xmlbase->{value} : undef;
 
     #create uri/about-uri (from about or id)
@@ -549,14 +617,9 @@ sub _analyzePath {
 	$_ eq RDF_ALT && do {$ct = NODE_ALT; 
 			     $ce->{containertype} = RDFT_ALT;
 			     last SWITCH;};
-	#$_ eq RDF_LI && do {$ct = NODE_MEMBER; last SWITCH;}; #never may happen
-	#/$re/ && do {$ct = NODE_MEMBER; last SWITCH;};
 	#deafult
 	$ct = NODE_UNKNOWN; #for now - property or typed object
     }
-
-#     $expat->xpcroak("deprecated element") 
-#       if $self->{strict} && ($ct & NODE_CONTAINER);
 
     #check validity in the context of the parent node
     #and optionally fix the node type for NODE_UNKNOWN
@@ -586,7 +649,7 @@ sub _analyzePath {
 	  unless $ct == NODE_UNKNOWN;
 	$ct = NODE_PROPERTY;
     } 
-    elsif ($pt == NODE_MEMBER || ($pt & NODE_PROPERTY_MASK)) {
+    elsif ($pt & NODE_PROPERTY_MASK) {
 	$expat->xpcroak("invalid node in the memeber element") unless
 	  $ct == NODE_UNKNOWN || ($ct & NODE_OBJ);
 	if ($ct == NODE_UNKNOWN) {
@@ -602,11 +665,13 @@ sub _analyzePath {
     }
 
     #if we found, that we're NODE_PROPERTY, we'' try to determine the subtype
-    my $ruri = $self->_getElementResource($ce);
     if ($ct == NODE_PROPERTY) {
+	my $ruri = $self->_getElementResource($ce);
 	if ($ruri || %$attrs) {
 	    $ct = NODE_PROPERTY_4;
-	    $ce->{resource} = $self->_getImplicitURI unless $ce->{resource};
+	    $ce->{resource} ||= $self->_getImplicitURI($ce->{nodeid});
+	} elsif ($ce->{parsetype} eq PARSE_COLLECTION) {
+	    $ct = NODE_PROPERTY_5;
 	} elsif ($ce->{parsetype} eq PARSE_RESOURCE) {
 	    $ct = NODE_PROPERTY_3;
 	} elsif ($ce->{parsetype} eq PARSE_LITERAL) {
@@ -615,7 +680,6 @@ sub _analyzePath {
 	    $ct = NODE_PROPERTY_1;
 	}
     }
-
     #set node type
     $ce->{type} = $ct;
 }
@@ -633,27 +697,24 @@ sub __slice {
 sub _checkAttributes {
     my ($self, $expat, $element, $attrs) = @_;
 
-    my $allset = [qw(about abouteach id bagid parsetype rdftype resource)];
+    my $allset = [qw(about abouteach id bagid parsetype rdftype resource 
+                     nodeid datatype)];
     my $aboutset = [qw(about abouteach id)];
-    my $memberset = [qw(parsetype resource)];
     #all except about and bag
-    my $inverseset1 = [qw(parsetype resource)];
+    my $inverseset1 = [qw(parsetype resource datatype)];
     #2 - all except id
-    my $inverseset2 = [qw(about abouteach bagid parsetype rdftype resource)];
+    my $inverseset2 = [qw(about abouteach bagid parsetype rdftype resource nodeid)];
     #3 - all except id and parsetype
-    my $inverseset3 = [qw(about abouteach bagid rdftype resource)];
+    my $inverseset3 = [qw(about abouteach bagid rdftype resource nodeid datatype)];
     #4 - all except resource, id and bag
-    my $inverseset4 = [qw(about abouteach parsetype rdftype)];
+    my $inverseset4 = [qw(about abouteach parsetype rdftype datatype)];
 
     my $et = $element->{type};
-
-    my $hasabout = scalar __slice($element, $aboutset);
 
     #check xml attributes (shouldn't be any)
     if (grep {$_->{ns} eq XML_NS} values %$attrs) {
 	$expat->xpcroak("invalid xml attribute");
     }
-
     if ($et == NODE_RDF) {
 	$expat->xpcroak("invalid attribute") 
 	  if scalar __slice($element, $allset) || %$attrs;
@@ -661,21 +722,20 @@ sub _checkAttributes {
     elsif ($et == NODE_DESCRIPTION || $et == NODE_TYPED) {
 	$expat->xpcroak("invalid attribute")
 	  if scalar __slice($element, $inverseset1);
+	$expat->xpcroak("invalid attribute")
+	  if scalar __slice($element, $aboutset) && $element->{nodeid};
     } 
     elsif ($et & NODE_CONTAINER) {
 	$expat->xpcroak("invalid attribute") 
 	  if scalar __slice($element, $inverseset1);
 	$element->{hasmembers} = 1 if %$attrs;
     } 
-    elsif ($et == NODE_MEMBER) {
-	$expat->xpcroak("invalid attribute")
-	  if scalar __slice($element, $memberset) > 1;
-    }
     elsif ($et == NODE_PROPERTY_1) {
 	$expat->xpcroak("invalid attribute") 
 	  if scalar __slice($element, $inverseset2) || %$attrs;
     }
-    elsif ($et == NODE_PROPERTY_2 || $et == NODE_PROPERTY_3) {
+    elsif ($et == NODE_PROPERTY_2 || $et == NODE_PROPERTY_3 
+	   || $et == NODE_PROPERTY_5) {
 	$expat->xpcroak("invalid attribute") 
 	  if scalar __slice($element, $inverseset3) || %$attrs;
     }
@@ -690,6 +750,8 @@ sub _checkNoResource {
     my ($self, $expat, $element) = @_;
     $expat->xpcroak("element contain both of rdf:resource and nested node")
       if $element->{resource};
+    $expat->xpcroak("element contain both of rdf:nodeID and nested node")
+      if $element->{nodeid};
 }
 
 #creates the 'current' subject
@@ -706,6 +768,7 @@ sub _createSubject {
 	}
     }
     elsif ($type == NODE_PROPERTY_3) {
+	#rdf:parseType="Resource"
 	my $subject = {uri => $self->_getImplicitURI};
 	push @{$self->{subjects}}, $subject;
 	$element->{presubject} = 1;
@@ -773,6 +836,8 @@ sub start {
 
     #switch to the literal mode if needed
     if ($element->{type} == NODE_PROPERTY_2) {
+	$element->{datatype} = RDF_XMLLITERAL;
+
 	$expat->setHandlers(%{$self->_getHandlersLiteral($name)});
     }
 }
@@ -803,6 +868,13 @@ sub end {
 	}
     }
     if ($element->{subject}) {
+
+	#Collection item
+	if ($self->{path}[-1] && 
+	    $self->{path}[-1]->{type} == NODE_PROPERTY_5) {
+	    $self->_assertCollectionItem($self->{subjects}[-2],
+					 $self->{path}[-1], $element );
+	}
 	#remember aboutEach stuff
 	if ( $element->{containertype}) {
 	    $self->{urimembers}{$element->{uri}} = $element->{members};
@@ -879,6 +951,19 @@ sub _findBaseURI {
     return $baseURI;
 }
 
+sub _findLang {
+    my ($self, $lastElement) = @_;
+    my $lang = $self->{lang};
+    foreach my $element ($lastElement, reverse @{$self->{path}}) {
+	next unless defined $element;
+	if (defined $element->{lang}) {
+	    $lang = $element->{lang};
+	    last;
+	}
+    }
+    return $lang;
+}
+
 sub _getHandlers {
     my $self = shift;
     my %handlers = (
@@ -935,9 +1020,21 @@ sub _clearFlag {
 }
 
 sub _getImplicitURI {
-    my $self = shift;
-    my $ret = $self->{inlineuri} || "_:a";
+    my ($self, $nodeID) = @_;
+    my $ret;
+    $ret = "_:" .($self->{bnode} || "a");
     $ret .=  ++ $self->{unique};
+
+    if ($nodeID) {
+	if ($self->{nodeid}{$nodeID}) {
+	    #use known node ID instead
+	    $ret = $self->{nodeid}{$nodeID}
+	} else {
+	    #remember node ID
+	    $self->{nodeid}{$nodeID} = $ret
+	}
+    }
+    return $ret;
 }
 
 1;
@@ -960,6 +1057,7 @@ A module for parsing XML documents containing RDF data. It's based on XML::Parse
 
   my %options = (Assert => \&handleAssert,
                  BaseURI => "http://www.foo.com/",
+                 BNodePrefix => "genid"
                 );
   my $parser = new RDF::Core::Parser(%options);
   $parser->parseFile('./rdfFile.xml');
@@ -984,9 +1082,13 @@ A reference to a subroutine, that is called for every assertion that parser gene
 
 A base URI of parsed document. It will be used to resolve relative URI references.
 
+=item * BNodePrefix
+
+Blank node identifier is generated as "_:" concatenated with BNodePrefix value concatenated with counter number. Default BnodePrefix is "a".
+
 =item * InlineURI
 
-Inline URI is used to generate URIs for anonymous (inline) resources.
+Deprecated.
 
 =back
 
@@ -1018,9 +1120,9 @@ namespace, local value and URI of object, if the object is a resource
 
 or
 
-=item * object_literal
+=item * object_literal, object_lang, object_datatype
 
-object value for literal
+object value for literal, it's language and datatype
 
 =back
 

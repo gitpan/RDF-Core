@@ -46,8 +46,10 @@ my @XML_EXP = qw (XML_NS XMLA_LANG XMLA_BASE);
 
 my @RDF_EXP = qw (RDF_NS RDF_RDF RDF_DESCRIPTION RDF_BAG RDF_ALT RDF_SEQ
 		  RDF_LI RDF_TYPE RDF_OBJECT RDF_SUBJECT RDF_PREDICATE
-		  RDF_STATEMENT RDF_PROPERTY RDFA_ABOUT RDFA_ABOUTEACH 
-		  RDFA_ID RDFA_BAGID RDFA_RESOURCE RDFA_PARSETYPE RDFA_TYPE);
+		  RDF_STATEMENT RDF_PROPERTY RDF_LIST RDF_FIRST RDF_REST 
+                  RDF_NIL RDFA_ABOUT RDFA_ABOUTEACH RDFA_ID RDFA_NODEID 
+                  RDFA_BAGID RDFA_RESOURCE RDFA_PARSETYPE RDFA_TYPE 
+                  RDFA_DATATYPE RDF_XMLLITERAL);
 
 
 my @RDFS_EXP = qw(RDFS_NS RDFS_RESOURCE RDFS_CLASS RDFS_LITERAL RDFS_CONTAINER
@@ -82,17 +84,24 @@ use constant RDF_SUBJECT     => RDF_NS . 'subject';
 use constant RDF_PREDICATE   => RDF_NS . 'predicate';
 use constant RDF_STATEMENT   => RDF_NS . 'Statement';
 use constant RDF_PROPERTY    => RDF_NS . 'Property';
+use constant RDF_LIST        => RDF_NS . 'List';
+use constant RDF_FIRST       => RDF_NS . 'first';
+use constant RDF_REST        => RDF_NS . 'rest';
+use constant RDF_NIL         => RDF_NS . 'nil';
 use constant RDF_VALUE       => RDF_NS . 'value';
+use constant RDF_XMLLITERAL  => RDF_NS . 'XMLLiteral';
 
 ########################################
 # RDF attributes
 use constant RDFA_ABOUT      => RDF_NS . 'about';
 use constant RDFA_ABOUTEACH  => RDF_NS . 'aboutEach';
 use constant RDFA_ID         => RDF_NS . 'ID';
+use constant RDFA_NODEID     => RDF_NS . 'nodeID';
 use constant RDFA_BAGID      => RDF_NS . 'bagID';
 use constant RDFA_RESOURCE   => RDF_NS . 'resource';
 use constant RDFA_PARSETYPE  => RDF_NS . 'parseType';
 use constant RDFA_TYPE       => RDF_NS . 'type';
+use constant RDFA_DATATYPE   => RDF_NS . 'datatype';
 
 ########################################
 # RDFS

@@ -2,6 +2,22 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
+Version 0.30
+March 14, 2003
+----------------
+	Specification changes:
+	- datatype and language information are handled wherever
+	  needed (parser, serializer, storages, literal object, 
+	  NTriples output)	
+	- RDF/XML: rdf:nodeID attribute is handled in parser 
+	- RDF/XML: rdf:parseType="Literal" asserts typed literal 
+	- RDF/XML: rdf:parseType="Collection" attribute value is
+	  handled
+
+	Fixed bugs:
+	- rdf namespace is prepended to about attribute in serializer
+	- Namespace/local value separation is kept where
+	  RDF::Core::Resource->clone() is called. (reported by Dan Berrios)  
 Version 0.20
 October 14, 2002
 ----------------

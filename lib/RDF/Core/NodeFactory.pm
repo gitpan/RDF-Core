@@ -59,8 +59,8 @@ sub getOptions {
     return $_[0]->{_options};
 }
 sub newLiteral {
-    my ($self, $value) = @_;
-    return new RDF::Core::Literal ($value);
+    my ($self, $value, $lang, $datatype) = @_;
+    return new RDF::Core::Literal ($value, $lang, $datatype);
 }
 sub newResource {
     my $self = shift;

@@ -75,14 +75,17 @@ sub serialize {
 	       $subjects = $self->{_subjects};
 	       $self->{_subjects} = undef; #We won't call this second time anyway
 	   } else {
-	       my $enumerator = $self->getOptions->{Model}->getStmts(undef,undef,undef);
+	       my $enumerator = $self->getOptions->{Model}->
+		 getStmts(undef,undef,undef);
 	       my $statement = $enumerator->getNext;
 	       $namespaces->{+RDF_NS} = 'rdf';
 	       while (defined $statement) {
 		   $subjects->{$statement->getSubject->getURI}=
 		     [$statement->getSubject,0,0];
-		   $namespaces->{$statement->getPredicate->getNamespace} = $self->_makePrefix
-		     unless exists $namespaces->{$statement->getPredicate->getNamespace} ;
+		   $namespaces->{$statement->getPredicate->getNamespace} = 
+		     $self->_makePrefix
+		       unless exists $namespaces->{$statement->getPredicate->
+						   getNamespace} ;
 		   $statement = $enumerator->getNext;
 	       }
 	       $enumerator->close;
@@ -99,14 +102,17 @@ sub serialize {
 	       $namespaces = $self->{_namespaces};
 	       $self->{_namespaces} = undef; #We won't call this second time anyway
 	   } else {
-	       my $enumerator = $self->getOptions->{Model}->getStmts(undef,undef,undef);
+	       my $enumerator = $self->getOptions->{Model}->
+		 getStmts(undef,undef,undef);
 	       my $statement = $enumerator->getNext;
 	       $namespaces->{+RDF_NS} = 'rdf';
 	       while (defined $statement) {
 		   $subjects->{$statement->getSubject->getURI}=
 		     [$statement->getSubject,0,0];
-		   $namespaces->{$statement->getPredicate->getNamespace} = $self->_makePrefix
-		     unless exists $namespaces->{$statement->getPredicate->getNamespace} ;
+		   $namespaces->{$statement->getPredicate->getNamespace} = 
+		     $self->_makePrefix
+		     unless exists $namespaces->{$statement->getPredicate->
+						 getNamespace} ;
 		   $statement = $enumerator->getNext;
 	       }
 	       $enumerator->close;
@@ -117,18 +123,24 @@ sub serialize {
        getStatements => 
        sub {
 	   my ($subject, $predicate, $object) = @_;
-	   my $enumerator = $self->getOptions->{Model}->getStmts($subject,$predicate,$object);
+	   my $enumerator = $self->getOptions->{Model}->
+	     getStmts($subject,$predicate,$object);
 	   return $enumerator;
+       },
+       countStatements => 
+       sub {
+	   my ($subject, $predicate, $object) = @_;
+	   return $self->getOptions->{Model}->
+	     countStmts($subject,$predicate,$object);
        },
        existsStatement => 
        sub {
 	   my ($subject, $predicate, $object) = @_;
-	   return $self->getOptions->{Model}->existsStmt($subject,$predicate,$object);
+	   return $self->getOptions->{Model}->
+	     existsStmt($subject,$predicate,$object);
        },
        Output => $self->getOptions->{Output},
        BaseURI => $self->getOptions->{BaseURI},
-       InlineURI => $self->getOptions->{InlineURI},
-       InlinePrefix => $self->getOptions->{InlinePrefix},
       );
     $serializer->serialize;
 }
@@ -152,7 +164,6 @@ __END__
   my $serializer = new RDF::Core::Model::Serializer(Model=>$model,
                                                     Output=>\$xml,
                                                     BaseURI => 'URI://BASE/',
-                                                    InlineURI => '_:a',
                                                    );
   $serializer->serialize;
   print "$xml\n";
@@ -177,7 +188,7 @@ Avaliable options are:
 
 A reference to RDF::Core::Model object - the RDF model I want to serialize.
 
-=item * Output, BaseURI, InlineURI, InlinePrefix
+=item * Output, BaseURI
 
 See RDF::Core::Serializer options
 

@@ -77,13 +77,19 @@ sub getLabel {
 	$literal =~ s/\r/\\r/g;
 	$literal =~ s/\t/\\t/g;
 	$literal =~ s/"/\\"/g;
-	$rval = $rval . '"' . $literal . '"';
+	$rval .= '"' . $literal . '"';
+	if (my $lang=$self->getObject()->getLang()) {
+	    $rval .= "\@$lang"
+	}
+	if (my $datatype=$self->getObject()->getDatatype()) {
+	    $rval .= "^^<$datatype>"
+	}
     } else {	
 	my $objectLabel = $self->getObject()->getURI();
 	unless ($objectLabel =~ /^_:/) {
 	    $objectLabel = '<' .$objectLabel.'> ';
 	}
-	$rval = $rval . $objectLabel;
+	$rval .= $objectLabel;
     }
     ;
     $rval .= "." ;

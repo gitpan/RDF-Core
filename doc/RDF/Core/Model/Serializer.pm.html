@@ -40,7 +40,6 @@
   my $serializer = new RDF::Core::Model::Serializer(Model=&gt;$model,
                                                     Output=&gt;\$xml,
                                                     BaseURI =&gt; 'URI://BASE/',
-                                                    InlineURI =&gt; '_:a',
                                                    );
   $serializer-&gt;serialize;
   print &quot;$xml\n&quot;;</PRE>
@@ -59,7 +58,7 @@ Avaliable options are:
 
 A reference to RDF::Core::Model object - the RDF model I want to serialize.
 <P></P>
-<LI><STRONG><A NAME="item_Output%2C_BaseURI%2C_InlineURI%2C_InlinePrefix">Output, BaseURI, InlineURI, InlinePrefix</A></STRONG><BR>
+<LI><STRONG><A NAME="item_Output%2C_BaseURI">Output, BaseURI</A></STRONG><BR>
 
 See RDF::Core::Serializer options
 <P></P></UL>

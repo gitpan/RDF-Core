@@ -46,19 +46,19 @@ require RDF::Core::Enumerator::Postgres;
 ############################################################
 # constants
 
-use constant RDF_CORE_UNDEFINED => 0;
+#use constant RDF_CORE_UNDEFINED => 0;
 
-use constant RDF_CORE_DB_DONT_CREATE => 0;
+#use constant RDF_CORE_DB_DONT_CREATE => 0;
 use constant RDF_CORE_DB_CREATE => 1;
 
-use constant RDF_CORE_SELECT_OBJECT_RES => 1;
-use constant RDF_CORE_SELECT_OBJECT_LIT => 2;
+#use constant RDF_CORE_SELECT_OBJECT_RES => 1;
+#use constant RDF_CORE_SELECT_OBJECT_LIT => 2;
 
-use constant RDF_CORE_SELECT_DATA => 1;
-use constant RDF_CORE_EXISTS_ONLY => 2;
+#use constant RDF_CORE_SELECT_DATA => 1;
+#use constant RDF_CORE_EXISTS_ONLY => 2;
 
-use constant RDF_CORE_COUNT_ONLY => 1;
-use constant RDF_CORE_DATA => 2;
+#use constant RDF_CORE_COUNT_ONLY => 1;
+#use constant RDF_CORE_DATA => 2;
 
 
 ############################################################
@@ -109,7 +109,7 @@ sub _getStmt {
     my $rval;
     my $isLiteral = $stmt->getObject()->isLiteral(); 
     my $proc = $isLiteral ? 
-      'select rdf_stmt_get(?,?,?,?,?,?,?)' : 
+      'select rdf_stmt_get(?,?,?,?,?,?,?,?,?)' : 
 	'select rdf_stmt_get(?,?,?,?,?,?,?,?)';
     my $sth = $self->_getDBHandle()->prepare($proc);
     my $i = 1;
@@ -120,6 +120,8 @@ sub _getStmt {
     $sth->bind_param($i++, $stmt->getPredicate()->getLocalValue());
     if ($isLiteral) {
 	$sth->bind_param($i++, $stmt->getObject()->getValue());
+	$sth->bind_param($i++, $stmt->getObject()->getLang());
+	$sth->bind_param($i++, $stmt->getObject()->getDatatype());
     } else {
 	$sth->bind_param($i++,$stmt->getObject()->getNamespace());
 	$sth->bind_param($i++,$stmt->getObject()->getLocalValue());
@@ -132,156 +134,78 @@ sub _getStmt {
 
 sub _buildSelect {
     my ($self, $subj, $pred, $obj, %switches) = @_; 
-    my $rval;
+    #apropriate switches are {count} (and {exists} ?)
 
+    my $sql;
+    my @bindings;
+    #build select part
+    my $select;
+    if ($switches{count}) {
+	$select = "Select count(*)\n"
+    } elsif ($switches{exists}) {
+	$select = "Select exists (Select 1 \n";
+    } else {
+	$select = "Select n1.namespace, r1.local_name, n2.namespace, ";
+	$select .= "r2.local_name, n3.namespace, r3.local_name, s.object_lit,";
+	$select .= "s.object_lang, s.object_type\n"
+    }
+
+    #build from and where part
+    my $from = "From rdf_statement s ";
+    my $where = "\nWhere s.model_id = ?";
+    push @bindings, $self->_getModelId;
+    if (($obj && !$obj->isLiteral) || 
+	!($switches{count} || $switches{exists})) {
+	$from .= "\nLeft Join rdf_resource r3 On r3.res_id = s.object_res ";
+	$from .= "\nLeft Join rdf_namespace n3 On n3.ns_id = r3.ns_id ";
+	
+    }
+    if ($subj || !($switches{count} || $switches{exists})) {
+	$from .= ",\n rdf_resource r1, rdf_namespace n1 ";
+	$where .= "\n and s.subject = r1.res_id ";
+	$where .= "\n and r1.ns_id = n1.ns_id ";
+    }
+    if ($pred || !($switches{count} || $switches{exists})) {
+	$from .= ",\n rdf_resource r2, rdf_namespace n2 ";
+	$where .= "\n and s.predicate = r2.res_id ";
+	$where .= "\n and r2.ns_id = n2.ns_id ";
+    }
+    ##
+    if ($subj) {
+	$where .= "\n and r1.local_name = ? and n1.namespace = ? ";
+	push @bindings, $subj->getLocalValue;
+	push @bindings, $subj->getNamespace;
+    }
+    if ($pred) {
+	$where .= "\n and r2.local_name = ? and n2.namespace = ? ";
+	push @bindings, $pred->getLocalValue;
+	push @bindings, $pred->getNamespace;
+    }
     if ($obj) {
-	$rval = $self->_buildSelect2($subj, $pred, $obj,
-					 ( class => RDF_CORE_SELECT_OBJECT_RES,
-					   count => $switches{count},));
-    } else {
-	my $rval1 = $self->_buildSelect2($subj, $pred, $obj,
-					 ( class => RDF_CORE_SELECT_OBJECT_RES,
-					   count => $switches{count},));
-	my $rval2 = $self->_buildSelect2($subj, $pred, $obj,
-					 ( class => RDF_CORE_SELECT_OBJECT_LIT,
-					   count => $switches{count},));
-	$rval2 =~ s/'1'/'4'/;	
-	$rval2 =~ s/'2'/'5'/;
-	$rval2 =~ s/'3'/'6'/;
-	if ($switches{count} == RDF_CORE_COUNT_ONLY) {
-	    $rval = "select ($rval1) + \n ($rval2)";
+	if ($obj->isLiteral) {
+	    $where .= "\n and s.object_lit = ?";
+	    push @bindings, $obj->getValue;
 	} else {
-	    $rval = "$rval1 \n union \n $rval2";
+	    $where .= "\n and r3.local_name = ? and n3.namespace = ? ";
+	    push @bindings, $obj->getLocalValue;
+	    push @bindings, $obj->getNamespace;
 	}
-    };
-    return $rval;
-};
-
-sub _buildSelect2 {
-    my ($self, $subj, $pred, $obj, %switches) = @_;
-    
-    $switches{class} = RDF_CORE_UNDEFINED unless $switches{class};
-    $switches{count} = RDF_CORE_COUNT_ONLY unless $switches{count};
-
-    my $select_subj = 'n1.namespace, r1.local_name';
-    my $select_pred = 'n2.namespace, r2.local_name';
-    my $select_obj_res = 'n3.namespace, r3.local_name, null';
-    my $select_obj_lit = 'null, null, s.object_lit';
-    
-    my $from_subj = 'rdf_resource r1, rdf_namespace n1';
-    my $from_pred = 'rdf_resource r2, rdf_namespace n2';
-    my $from_obj_res = 'rdf_resource r3, rdf_namespace n3';
-    
-    my $where_subj_join = 'r1.res_id = s.subject and r1.ns_id = n1.ns_id';
-    my $where_pred_join = 'r2.res_id = s.predicate and r2.ns_id = n2.ns_id';
-    my $where_obj_res_join = 'r3.res_id = s.object_res and r3.ns_id = n3.ns_id';
-    
-    my $where_subj_param = 'n1.namespace = ? and r1.local_name = ?';
-    my $where_pred_param = 'n2.namespace = ? and r2.local_name = ?';
-    my $where_obj_res_param = 'n3.namespace = ? and r3.local_name = ?';
-    my $where_obj_lit_param = 's.object_lit = ?';
-    
-    # construction of 'select' part
-    my $select_obj = $obj ? 
-      ($obj->isLiteral() ? $select_obj_lit : $select_obj_res) :
-	($switches{class} == RDF_CORE_SELECT_OBJECT_RES ? $select_obj_res : $select_obj_lit);
-    my $s;
-    if ($switches{count} == RDF_CORE_COUNT_ONLY) {
-	$s = "select count(*)\n";
-    } else {
-	$s = 'select '.join (', ', ($select_subj, $select_pred, $select_obj))."\n";
-    };    
-    # construction of 'from' part
-    $s = $s . 'from '.join (', ', ('rdf_statement s', $from_subj, $from_pred));
-    if ((!$obj && ($switches{class} == RDF_CORE_SELECT_OBJECT_RES)) || 
-	($obj && !$obj->isLiteral())) {
-	$s = join (', ', ($s, $from_obj_res));
-    };
-    $s = $s . "\n";
-    
-    # construction of 'where' part
-    $s = $s . "where s.model_id = ?\n";
-    # subject
-    $s = join (' and ', ($s, $subj ? ($where_subj_param, $where_subj_join) : $where_subj_join)) . "\n";
-    # predicate
-    $s = join (' and ', ($s, $pred ? ($where_pred_param, $where_pred_join) : $where_pred_join)) . "\n";
-    # object
-    my $where_obj = $obj ? 
-      ($obj->isLiteral() ? $where_obj_lit_param : join (' and ', ($where_obj_res_param, $where_obj_res_join))) : 
-	($switches{class} == RDF_CORE_SELECT_OBJECT_RES ? $where_obj_res_join : ' s.object_lit is not null');
-    $s = join (' and ', ($s, $where_obj));
-    return $s;
-};
-
-
+    }
+    $sql = "$select $from $where";
+    $sql .= ")" if $switches{exists};
+    return $sql, \@bindings;
+}
 
 sub _getStmts {
     my ($self, $subject, $predicate, $object, %switches) = @_;
 
-    $switches{target} = RDF_CORE_SELECT_DATA unless $switches{target};
-    $switches{count} = RDF_CORE_COUNT_ONLY unless $switches{count};
+    my ($sql, $bindings) = $self->_buildSelect
+      ($subject, $predicate, $object, %switches);
 
-    my $s = $self->_buildSelect($subject, $predicate, $object, 
-				( count => $switches{count} ));
-
-    if ($switches{target} == RDF_CORE_EXISTS_ONLY) {
-	if ($subject || $predicate || $object) {
-	    $s = 'select exists ( ' . $s . ' )';
-	} else {
-	    # optimise for 'is there a statement at all?' question
-	    $s = 'select exists ' .
-	      '( select * from rdf_statement where model_id = ? )';
-	}
-    }
-    my $sth = $self->_getDBHandle()->prepare($s);
-    
-    my $i=1;
-    $sth->bind_param($i++,$self->_getModelId); #model
-
-    if (($switches{target} == RDF_CORE_SELECT_DATA) ||
-	(($switches{target} == RDF_CORE_EXISTS_ONLY) && 
-	 ($subject || $predicate || $object))) {
-
-	if ($subject) { 
-	    $sth->bind_param($i++,$subject->getNamespace()); 
-	    $sth->bind_param($i++,$subject->getLocalValue()); 
-	}
-	if ($predicate) { 
-	    $sth->bind_param($i++,$predicate->getNamespace()); 
-	    $sth->bind_param($i++,$predicate->getLocalValue()); 
-	}
-	if ($object) { 
-	    if ($object->isLiteral()) {
-		$sth->bind_param($i++,$object->getValue()); 
-	    } else {
-		$sth->bind_param($i++,$object->getNamespace()); 
-		$sth->bind_param($i++,$object->getLocalValue()); 
-	    }
-	}    
-	unless ($object) {
-	    $sth->bind_param($i++,$self->_getModelId); #model
-	    if ($subject) { 
-		$sth->bind_param($i++,$subject->getNamespace()); 
-		$sth->bind_param($i++,$subject->getLocalValue()); 
-	    }
-	    if ($predicate) { 
-		$sth->bind_param($i++,$predicate->getNamespace()); 
-		$sth->bind_param($i++,$predicate->getLocalValue()); 
-	    }
-	    if ($object) { 
-		if ($object->isLiteral()) {
-		    $sth->bind_param($i++,$object->getValue()); 
-		} else {
-		    $sth->bind_param($i++,$object->getNamespace()); 
-		    $sth->bind_param($i++,$object->getLocalValue()); 
-		}
-	    }    
-	}
-    }
-
-    $sth->execute();
+    my $sth = $self->_getDBHandle()->prepare($sql);
+    $sth->execute(@$bindings);
     return $sth;
-};
+}
 
 
 ############################################################
@@ -317,39 +241,53 @@ sub removeStmt {
 }
 
 sub existsStmt {
-#    my ($self, $stmt) = @_;
-#    return (_getStmt ($self, $stmt, RDF_CORE_DB_DONT_CREATE) > 0);
     my ($self, $subject, $predicate, $object) = @_;    
-    my $sth = $self->_getStmts($subject, $predicate, $object, 
-			       ( target => RDF_CORE_SELECT_DATA,
-				 count => RDF_CORE_DATA, ));
+    my $dbh = $self->_getDBHandle();
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO OFF');
+	$sth->execute();
+    }
+    my $sth = $self->_getStmts($subject, $predicate, $object, exists=>1);
     my @row = $sth->fetchrow_array;      
+    $dbh = $self->_getDBHandle();
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO ON');
+	$sth->execute();
+    }
     return $row[0];
 }
 
 sub getStmts {
     my ($self, $subject, $predicate, $object) = @_;
-    my $sth = $self->_getStmts($subject, $predicate, $object,
-			       ( target => RDF_CORE_SELECT_DATA,
-				 count => RDF_CORE_DATA, ));
+    my $dbh = $self->_getDBHandle();
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO OFF');
+	$sth->execute();
+    }
+
+    my $sth = $self->_getStmts($subject, $predicate, $object);
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO ON');
+	$sth->execute();
+    }
     return new RDF::Core::Enumerator::Postgres( (Cursor  => $sth) );
 }
 
 sub countStmts {
     my ($self, $subject, $predicate, $object) = @_;   
 
-    my $sth = $self->_getStmts($subject, $predicate, $object,
-			       ( target => RDF_CORE_SELECT_DATA,
-				 count => RDF_CORE_COUNT_ONLY, ));
-#    $sth->execute();		
+    my $dbh = $self->_getDBHandle();
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO OFF');
+	$sth->execute();
+    }
+    my $sth = $self->_getStmts($subject, $predicate, $object, count=>1);
     my @row = $sth->fetchrow_array;      
+    unless ($subject || $predicate || $object) {
+	my $sth = $dbh->prepare('SET ENABLE_SEQSCAN TO ON');
+	$sth->execute();
+    }
     return $row[0];
-#    my $sql = 'select count(*) from rdf_statement where model_id = ?';
-#    my $sth = $self->_getDBHandle()->prepare($sql);
-#    $sth->bind_param(1, $self->_getModelId);
-#    $sth->execute();		
-#    my @row = $sth->fetchrow_array;      
-#    return $row[0];
 }
 
 sub getNewResourceId {

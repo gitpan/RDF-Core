@@ -42,6 +42,7 @@
 <PRE>
   my %options = (Assert =&gt; \&amp;handleAssert,
                  BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
+                 BNodePrefix =&gt; &quot;genid&quot;
                 );
   my $parser = new RDF::Core::Parser(%options);
   $parser-&gt;parseFile('./rdfFile.xml');
@@ -62,9 +63,13 @@ A reference to a subroutine, that is called for every assertion that parser gene
 
 A base URI of parsed document. It will be used to resolve relative URI references.
 <P></P>
+<LI><STRONG><A NAME="item_BNodePrefix">BNodePrefix</A></STRONG><BR>
+
+Blank node identifier is generated as ``_:'' concatenated with BNodePrefix value concatenated with counter number. Default BnodePrefix is ``a''.
+<P></P>
 <LI><STRONG><A NAME="item_InlineURI">InlineURI</A></STRONG><BR>
 
-Inline URI is used to generate URIs for anonymous (inline) resources.
+Deprecated.
 <P></P></UL>
 <LI><STRONG><A NAME="item_parse"><CODE>parse($string)</CODE></A></STRONG><BR>
 
@@ -89,9 +94,9 @@ namespace, local value and URI of predicate
 namespace, local value and URI of object, if the object is a resource
 <P>or</P>
 <P></P>
-<LI><STRONG><A NAME="item_object_literal">object_literal</A></STRONG><BR>
+<LI><STRONG><A NAME="item_object_literal%2C_object_lang%2C_object_datatype">object_literal, object_lang, object_datatype</A></STRONG><BR>
 
-object value for literal
+object value for literal, it's language and datatype
 <P></P></UL>
 <P>
 <HR>

@@ -72,7 +72,7 @@ sub getNext {
 	if ($row[4]) {
 	    $object = new RDF::Core::Resource($row[4],$row[5]);
 	} else {
-	    $object = new RDF::Core::Literal($row[6]);	
+	    $object = new RDF::Core::Literal($row[6], $row[7], $row[8]);
 	};
 	$rval = new RDF::Core::Statement($subject, $predicate, $object);
     }

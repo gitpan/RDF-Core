@@ -52,22 +52,33 @@ require RDF::Core::Enumerator::DB_File;
 use constant NAMESPACE => 'ns';         #resource's namespace
 use constant VALUE => 'lv';             #resource's value
 use constant LITERAL => 'lt';           #object's literal value
+use constant LIT_TYPE => 'ld';          #object's literal datatype
+use constant LIT_LANG => 'll';          #object's literal language
 use constant SUBJECT => 'su';           #subject number
 use constant PREDICATE => 'pr';         #predicate number
 use constant OBJECT_RES => 'or';        #object number, if object is resource
 use constant OBJECT_LIT => 'ol';        #object number, if object is literal
-use constant SUBJECT_SIZE => 'ss';      #number of statements where given resource is subject
-use constant PREDICATE_SIZE => 'ps';    #number of statements where given resource is predicate
-use constant OBJECTRES_SIZE => 'os';    #number of statements where given resource is object
-use constant OBJECTLIT_SIZE => 'ls';    #number of statements where given literal is object
+use constant SUBJECT_SIZE => 'ss';      #number of statements where given 
+                                        # resource is subject
+use constant PREDICATE_SIZE => 'ps';    #number of statements where given
+                                        # resource is predicate
+use constant OBJECTRES_SIZE => 'os';    #number of statements where given
+                                        # resource is object
+use constant OBJECTLIT_SIZE => 'ls';    #number of statements where given
+                                        # literal is object
 use constant ALL_KEY => 'all';          #number of all statements in the model
 #in idxStmt hash - it has duplicate values allowed
-use constant SUBJECT_IDX => 'si';       #array of statements where given resource is subject
-use constant PREDICATE_IDX => 'pi';     #array of statements where given resource is predicate
-use constant OBJECTRES_IDX => 'oi';     #array of statements where given resource is object
-use constant OBJECTLIT_IDX => 'li';     #array of statements where given literal is object
+use constant SUBJECT_IDX => 'si';       #array of statements where given
+                                        # resource is subject
+use constant PREDICATE_IDX => 'pi';     #array of statements where given
+                                        # resource is predicate
+use constant OBJECTRES_IDX => 'oi';     #array of statements where given
+                                        # resource is object
+use constant OBJECTLIT_IDX => 'li';     #array of statements where given
+                                        # literal is object
 
-#There are two more hashes - idxRes and idxLit. Their key is URI or literal value and their value is number of resource or literal in _data
+#There are two more hashes - idxRes and idxLit. Their key is URI or literal 
+# value and their value is number of resource or literal in _data
 
 $SIG{INT} = \&__catch_zap;  
 my $writing;
@@ -102,24 +113,27 @@ sub new {
     $self->{_options}->{Name} ||= undef;
     $self->{_options}->{Flags} ||= O_CREAT|O_RDWR;
     $self->{_options}->{Mode} ||= 0666;
-    #max number of statements to be returned as in memory enumerator with getStmts
+    #max nr of statements to be returned as in memory enumerator with getStmts
     $self->{_options}->{MemLimit} ||= 0;
     ################################
     #tie hashes
     my $file = $self->{_options}->{Name} && $self->{_options}->{Name}.'_data';
-    tie %{$self->{_data}}, 'DB_File', $file, $self->{_options}->{Flags}, $self->{_options}->{Mode}, $DB_HASH 
-      or die "Couldn't tie ", $file || 'undef',": $!";
+    tie %{$self->{_data}}, 'DB_File', $file, $self->{_options}->{Flags}, 
+      $self->{_options}->{Mode}, $DB_HASH 
+	or die "Couldn't tie ", $file || 'undef',": $!";
     $file = $self->{_options}->{Name} && $self->{_options}->{Name}.'_idxLit';
-    tie %{$self->{_idxLit}}, 'DB_File', $file, $self->{_options}->{Flags}, $self->{_options}->{Mode}, $DB_HASH 
-      or die "Couldn't tie ", $file || 'undef',": $!";
+    tie %{$self->{_idxLit}}, 'DB_File', $file, $self->{_options}->{Flags}, 
+      $self->{_options}->{Mode}, $DB_HASH 
+	or die "Couldn't tie ", $file || 'undef',": $!";
     $file = $self->{_options}->{Name} && $self->{_options}->{Name}.'_idxRes';
-    tie %{$self->{_idxRes}}, 'DB_File', $file, $self->{_options}->{Flags}, $self->{_options}->{Mode}, $DB_HASH 
-      or die "Couldn't tie ", $file || 'undef',": $!";
+    tie %{$self->{_idxRes}}, 'DB_File', $file, $self->{_options}->{Flags}, 
+      $self->{_options}->{Mode}, $DB_HASH 
+	or die "Couldn't tie ", $file || 'undef',": $!";
     $DB_BTREE->{'flags'} = R_DUP;
     $file = $self->{_options}->{Name} && $self->{_options}->{Name}.'_idxStmt';
-    tie %{$self->{_idxStmt}}, 'DB_File', $file, $self->{_options}->{Flags}, $self->{_options}->{Mode}, $DB_BTREE 
-      or die "Couldn't tie ", $file || 'undef',": $!";
-
+    tie %{$self->{_idxStmt}}, 'DB_File', $file, $self->{_options}->{Flags}, 
+      $self->{_options}->{Mode}, $DB_BTREE 
+	or die "Couldn't tie ", $file || 'undef',": $!";
 
     bless $self, $pkg;
 }
@@ -136,33 +150,47 @@ sub addStmt {
     }
     #Add subject to resources
     my $subjectID;
-    if (!defined ($subjectID = $self->{_idxRes}->{$stmt->getSubject->getURI})) {
+    if (!defined($subjectID = $self->{_idxRes}->{$stmt->getSubject->getURI})) {
 	$subjectID = $self->_getCounter('resource');
-	$self->{_data}->{+NAMESPACE.$subjectID} = $stmt->getSubject->getNamespace;
+	$self->{_data}->{+NAMESPACE.$subjectID} = 
+	  $stmt->getSubject->getNamespace;
 	$self->{_data}->{+VALUE.$subjectID} = $stmt->getSubject->getLocalValue;
 	$self->{_idxRes}->{$stmt->getSubject->getURI} = $subjectID;
     }
     #Add predicate to resources
     my $predicateID;
-    if (!defined ($predicateID = $self->{_idxRes}->{$stmt->getPredicate->getURI})) {
+    if (!defined ($predicateID = 
+		  $self->{_idxRes}->{$stmt->getPredicate->getURI})) {
 	$predicateID = $self->_getCounter('resource');
-	$self->{_data}->{+NAMESPACE.$predicateID} = $stmt->getPredicate->getNamespace;
-	$self->{_data}->{+VALUE.$predicateID} = $stmt->getPredicate->getLocalValue;
+	$self->{_data}->{+NAMESPACE.$predicateID} = 
+	  $stmt->getPredicate->getNamespace;
+	$self->{_data}->{+VALUE.$predicateID} = 
+	  $stmt->getPredicate->getLocalValue;
 	$self->{_idxRes}->{$stmt->getPredicate->getURI} = $predicateID;
     }
     #Add object to resources or literals
     my $objectID;
       if ($stmt->getObject->isLiteral) {
-	  if (!defined ($objectID = $self->{_idxLit}->{$stmt->getObject->getValue})) {
+	  if (!defined ($objectID = 
+			$self->{_idxLit}->{$stmt->getObject->getValue})) {
 	      $objectID = $self->_getCounter('literal');
-	      $self->{_data}->{+LITERAL.$objectID} = $stmt->getObject->getValue;
+	      $self->{_data}->{+LITERAL.$objectID}=$stmt->getObject->getValue;
+	      $self->{_data}->{+LIT_LANG.$objectID} = 
+		$stmt->getObject->getLang
+		  if $stmt->getObject->getLang;
+	      $self->{_data}->{+LIT_TYPE.$objectID}=
+		$stmt->getObject->getDatatype
+		  if $stmt->getObject->getDatatype;
 	      $self->{_idxLit}->{$stmt->getObject->getValue} = $objectID;
 	  }
       } else {
-	  if (!defined ($objectID = $self->{_idxRes}->{$stmt->getObject->getURI})) {
+	  if (!defined ($objectID = 
+			$self->{_idxRes}->{$stmt->getObject->getURI})) {
 	      $objectID = $self->_getCounter('resource');
-	      $self->{_data}->{+NAMESPACE.$objectID} = $stmt->getObject->getNamespace;
-	      $self->{_data}->{+VALUE.$objectID} = $stmt->getObject->getLocalValue;
+	      $self->{_data}->{+NAMESPACE.$objectID} = 
+		$stmt->getObject->getNamespace;
+	      $self->{_data}->{+VALUE.$objectID} = 
+		$stmt->getObject->getLocalValue;
 	      $self->{_idxRes}->{$stmt->getObject->getURI} = $objectID;
 	  }
       }
@@ -195,9 +223,9 @@ sub removeStmt {
       my $key = $self->_getKey($stmt);
     $writing = 1;
     my $idxStmt = tied %{$self->{_idxStmt}};
-    #Decrement number of occurences of resource/literal, delete not used resource/literal,
-    #remove statement from resource's/literal's index and index itself, if empty, 
-    #remove statement
+    #Decrement number of occurences of resource/literal, delete not used 
+    # resource/literal, remove statement from resource's/literal's index 
+    # and index itself, if empty, remove statement
     my $subjectID = $self->{_data}->{+SUBJECT.$key};
     delete $self->{_data}->{+SUBJECT.$key};
     $idxStmt->del_dup(SUBJECT_IDX.$subjectID, $key);
@@ -232,6 +260,8 @@ sub removeStmt {
 	unless (--$self->{_data}->{+OBJECTLIT_SIZE.$objectID}) {
 	    delete $self->{_data}->{+OBJECTLIT_SIZE.$objectID};
 	    delete $self->{_data}->{+LITERAL.$objectID};
+	    delete $self->{_data}->{+LIT_TYPE.$objectID};
+	    delete $self->{_data}->{+LIT_LANG.$objectID};
 	    delete $self->{_idxLit}->{$stmt->getObject->getValue};
 	}
     } else {
@@ -265,15 +295,18 @@ sub existsStmt {
     foreach (@{$self->_getIndexArray($subject, $predicate, $object)}) {
 	my ($subURI, $predURI,  $objValue, $index);
 	$index = $self->{_data}->{+SUBJECT.$_};
-	$subURI = $self->{_data}->{+NAMESPACE.$index}.$self->{_data}->{+VALUE.$index};
+	$subURI = $self->{_data}->{+NAMESPACE.$index}.
+	  $self->{_data}->{+VALUE.$index};
 	$index = $self->{_data}->{+PREDICATE.$_};
-	$predURI = $self->{_data}->{+NAMESPACE.$index}.$self->{_data}->{+VALUE.$index};
+	$predURI = $self->{_data}->{+NAMESPACE.$index}.
+	  $self->{_data}->{+VALUE.$index};
 	if (exists $self->{_data}->{+OBJECT_LIT.$_}) {
 	    $index  =  $self->{_data}->{+OBJECT_LIT.$_};
 	    $objValue = $self->{_data}->{+LITERAL.$index};
 	} else {
 	    $index  =  $self->{_data}->{+OBJECT_RES.$_};
-	    $objValue = $self->{_data}->{+NAMESPACE.$index}.$self->{_data}->{+VALUE.$index};
+	    $objValue = $self->{_data}->{+NAMESPACE.$index}.
+	      $self->{_data}->{+VALUE.$index};
 	}
 	if ((!defined $subject || $subURI eq $subject->getURI) && 
 	    (!defined $predicate || $predURI eq $predicate->getURI) && 
@@ -304,7 +337,8 @@ sub getStmts {
     } else {
 	#otherwise loop through index and check statements
 	while (my $stmtIdx = pop @$indexArray) {
-	    my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, $index);
+	    my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, 
+		$litLang, $litDatatype, $index);
 	    my $isLiteral;
 	    $index = $self->{_data}->{+SUBJECT.$stmtIdx};
 	    $subNS = $self->{_data}->{+NAMESPACE.$index};
@@ -315,6 +349,8 @@ sub getStmts {
 	    if ($isLiteral = exists($self->{_data}->{+OBJECT_LIT.$stmtIdx})) {
 		$index  =  $self->{_data}->{+OBJECT_LIT.$stmtIdx};
 		$objValue = $self->{_data}->{+LITERAL.$index};
+		$litDatatype = $self->{_data}->{+LIT_TYPE.$index};
+		$litLang = $self->{_data}->{+LIT_LANG.$index};
 	    } else {
 		$index  =  $self->{_data}->{+OBJECT_RES.$stmtIdx};
 		$objNS = $self->{_data}->{+NAMESPACE.$index};
@@ -330,7 +366,8 @@ sub getStmts {
 		    my $newpred = new RDF::Core::Resource($predNS,$predLV);
 		    my $newobj;
 		    if ($isLiteral) {
-			$newobj = new RDF::Core::Literal($objValue);
+			$newobj = new RDF::Core::Literal($objValue, $litLang, 
+							 $litDatatype);
 		    } else {
 			$newobj = new RDF::Core::Resource($objNS,$objLV)
 		    }
@@ -377,15 +414,15 @@ sub countStmts {
 	    (!defined $predicate || $predNS.$predLV eq $predicate->getURI) && 
 	    (!defined $object || $objValue eq $object->getLabel)
 	   ) {  #found statement
-	    my $newsub = new RDF::Core::Resource($subNS,$subLV);
-	    my $newpred = new RDF::Core::Resource($predNS.$predLV);
-	    my $newobj;
-	    if ($isLiteral) {
-		$newobj = new RDF::Core::Literal($objValue);
-	    } else {
-		$newobj = new RDF::Core::Resource($objNS,$objLV)
-	    }
-	    my $statement = new RDF::Core::Statement($newsub,$newpred,$newobj);
+# 	    my $newsub = new RDF::Core::Resource($subNS,$subLV);
+# 	    my $newpred = new RDF::Core::Resource($predNS.$predLV);
+# 	    my $newobj;
+# 	    if ($isLiteral) {
+# 		$newobj = new RDF::Core::Literal($objValue);
+# 	    } else {
+# 		$newobj = new RDF::Core::Resource($objNS,$objLV)
+# 	    }
+# 	    my $statement = new RDF::Core::Statement($newsub,$newpred,$newobj);
 	    $count++;
 	}
     }

@@ -67,33 +67,37 @@ sub parse {
     delete $parserOptions{Model};
     delete $parserOptions{Source};
     delete $parserOptions{SourceType};
-    $parserOptions{Assert} = sub {my %params = @_;
-				  my $params = \%params;
-				  my $factory = new RDF::Core::NodeFactory();
-				  my ($subject,$object,$predicate);
-				  if (exists $params->{subject_ns}) {
-				      $subject = $factory->newResource($params->{subject_ns},
-								       $params->{subject_name});
-				  } else {
-				      $subject = $factory->newResource($params->{subject_uri});
-				  }
-				  if (exists $params->{predicate_ns}) {
-				      $predicate = $factory->newResource($params->{predicate_ns},
-									 $params->{predicate_name});
-				  } else {
-				      $predicate = $factory->newResource($params->{predicate_uri});
-				  }
-				  if (exists $params->{object_literal}) {
-				      $object = $factory->newLiteral($params->{object_literal});
-				  } elsif (exists $params->{object_ns}) {
-				      $object = $factory->newResource($params->{object_ns},
-								      $params->{object_name});
-				  } else {
-				      $object = $factory->newResource($params->{object_uri});
-				  }
-				  my $statement = new RDF::Core::Statement($subject,$predicate,$object);
-				  $self->getOptions->{Model}->addStmt($statement);
-			      }
+    $parserOptions{Assert} = 
+      sub {my %params = @_;
+	   my $params = \%params;
+	   my $factory = new RDF::Core::NodeFactory();
+	   my ($subject,$object,$predicate);
+	   if (exists $params->{subject_ns}) {
+	       $subject = $factory->newResource($params->{subject_ns},
+						$params->{subject_name});
+	   } else {
+	       $subject = $factory->newResource($params->{subject_uri});
+	   }
+	   if (exists $params->{predicate_ns}) {
+	       $predicate = $factory->newResource($params->{predicate_ns},
+						  $params->{predicate_name});
+	   } else {
+	       $predicate = $factory->newResource($params->{predicate_uri});
+	   }
+	   if (exists $params->{object_literal}) {
+	       $object = $factory->newLiteral($params->{object_literal},
+					      $params->{object_lang} || undef,
+					      $params->{object_datatype}||undef
+					     );
+	   } elsif (exists $params->{object_ns}) {
+	       $object = $factory->newResource($params->{object_ns},
+					       $params->{object_name});
+	   } else {
+	       $object = $factory->newResource($params->{object_uri});
+	   }
+	   my $st = new RDF::Core::Statement($subject,$predicate,$object);
+	   $self->getOptions->{Model}->addStmt($st);
+       }
       unless defined $parserOptions{Assert};
     my $parser = new RDF::Core::Parser(%parserOptions);
     return $parser->parse($self->getOptions->{Source})
@@ -116,7 +120,7 @@ RDF::Core::Model::Parser - interface between model and RDF::Core::Parser
               SourceType => 'file',
               #parserOptions
               BaseURI => "http://www.foo.com/",
-              InlineURI => "http://www.bar.com/"
+              BNodePrefix => "genid"
              )
   my $parser = new RDF::Core::Model::Parser(%options);
   $parser->parse;

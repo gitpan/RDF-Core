@@ -45,9 +45,7 @@ sub getLabel {
     carp "Pure virtual function call.";
 }
 sub clone {
-    my $self = shift;
-    #TODO: override this for Resource - better handling of namespace
-    return $self->new($self->getLabel);
+    carp "Pure virtual function call.";
 }
 sub isLiteral {
     my $self = shift;

@@ -44,6 +44,8 @@ use Carp;
 use constant NAMESPACE => RDF::Core::Storage::DB_File::NAMESPACE;
 use constant VALUE => RDF::Core::Storage::DB_File::VALUE;
 use constant LITERAL => RDF::Core::Storage::DB_File::LITERAL;
+use constant LIT_LANG => RDF::Core::Storage::DB_File::LIT_LANG;
+use constant LIT_TYPE => RDF::Core::Storage::DB_File::LIT_TYPE;
 use constant SUBJECT => RDF::Core::Storage::DB_File::SUBJECT;
 use constant PREDICATE => RDF::Core::Storage::DB_File::PREDICATE;
 use constant OBJECT_RES => RDF::Core::Storage::DB_File::OBJECT_RES;
@@ -51,8 +53,9 @@ use constant OBJECT_LIT => RDF::Core::Storage::DB_File::OBJECT_LIT;
 
 
 sub new {
-    #Gets a hash tied to a data file (see RDF::Core::Storage::DB_File->{_data}),
-    #and an array of statements' indexes in the hash or undef for all statements
+    #Gets a hash tied to a data file (see RDF::Core::Storage::DB_File->{_data})
+    # and an array of statements' indexes in the hash 
+    # or undef for all statements
     my ($pkg,$data,$stmtArray)=@_;
     $pkg = ref $pkg || $pkg;
     my $self = {};
@@ -91,7 +94,8 @@ sub getNext {
     return undef		#end of data
       unless defined $key;
     #create and return statement
-    my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, $index);
+    my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, 
+	$litLang, $litDatatype, $index);
     my $isLiteral;
     $index = $self->{_data}->{+SUBJECT.$key};
     $subNS = $self->{_data}->{+NAMESPACE.$index};
@@ -102,6 +106,8 @@ sub getNext {
     if ($isLiteral = exists($self->{_data}->{+OBJECT_LIT.$key})) {
 	$index  =  $self->{_data}->{+OBJECT_LIT.$key};
 	$objValue = $self->{_data}->{+LITERAL.$index};
+	$litDatatype = $self->{_data}->{+LIT_TYPE.$index};
+	$litLang = $self->{_data}->{+LIT_LANG.$index};
     } else {
 	$index  =  $self->{_data}->{+OBJECT_RES.$key};
 	$objNS = $self->{_data}->{+NAMESPACE.$index};
@@ -112,7 +118,9 @@ sub getNext {
     my $newpred = new RDF::Core::Resource($predNS.$predLV);
     my $newobj;
     if ($isLiteral) {
-	$newobj = new RDF::Core::Literal($objValue);
+	$newobj = new RDF::Core::Literal($objValue, $litLang, 
+					 $litDatatype);
+
     } else {
 	$newobj = new RDF::Core::Resource($objNS,$objLV)
     }

@@ -83,6 +83,10 @@ sub getURI {
 sub getLabel {
     return $_[0]->getURI;
 }
+sub clone {
+    my $self = shift;
+    return $self->new($self->{_namespace}, $self->{_localValue});
+}
 
 sub equals {
     my ($self, $other) = @_;

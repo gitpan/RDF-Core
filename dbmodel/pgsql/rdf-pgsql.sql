@@ -309,6 +309,8 @@ create table rdf_statement (
    predicate integer not null,
    object_res integer,
    object_lit text,
+   object_lang text,
+   object_type text,
    primary key (stmt_id)
 );
 
@@ -316,6 +318,7 @@ create sequence rdf_statement_seq;
 
 -- indexes
 
+create index rdf_statement_idx_model on rdf_statement (model_id);
 create index rdf_statement_idx_s on rdf_statement (model_id, subject);
 create index rdf_statement_idx_p on rdf_statement (model_id, predicate);
 create index rdf_statement_idx_or on rdf_statement (model_id, object_res);
@@ -577,42 +580,42 @@ create function rdf_stmt_get(integer,integer,integer,integer,integer)
     END;'
   language 'plpgsql';
 
-create function rdf_stmt_get(integer,integer,text,
-  integer,text,integer,text,integer)
-  returns integer
-   /* $1: model id
-    * $2: subject namespace id
-    * $3: subject local name
-    * $4: predicate resource id
-    * $5: predicate local name
-    * $6: object namespace id
-    * $7: object local name
-    * $8: switch [0,1]
-    *       0 = do not create non-existing resources
-    *       1 = create non-existing resource (& namespaces)
-    * returns: new resource id or negative error message
-    *   -1: resource does not exists
-    * 
-    * no check for uniqueness (check is on other constraints)
-    */
-  as
-  ' DECLARE
-      rval integer;
-      subj integer;
-      pred integer;
-      obj integer;
-      dummy integer;
-    BEGIN
-      rval = -1;
-      subj = rdf_res_get($2,$3,$8);
-      pred = rdf_res_get($4,$5,$8);
-      obj = rdf_res_get($6,$7,$8);
-      if ((subj > 0) and (pred > 0) and (obj > 0)) then
-        rval = rdf_stmt_get($1,subj,pred,obj,$8);
-      end if;
-      return rval;
-    END;'
-  language 'plpgsql';
+-- create function rdf_stmt_get(integer,integer,text,
+--   integer,text,integer,text,integer)
+--   returns integer
+--    /* $1: model id
+--     * $2: subject namespace id
+--     * $3: subject local name
+--     * $4: predicate resource id
+--     * $5: predicate local name
+--     * $6: object namespace id
+--     * $7: object local name
+--     * $8: switch [0,1]
+--     *       0 = do not create non-existing resources
+--     *       1 = create non-existing resource (& namespaces)
+--     * returns: new resource id or negative error message
+--     *   -1: resource does not exists
+--     * 
+--     * no check for uniqueness (check is on other constraints)
+--     */
+--   as
+--   ' DECLARE
+--       rval integer;
+--       subj integer;
+--       pred integer;
+--       obj integer;
+--       dummy integer;
+--     BEGIN
+--       rval = -1;
+--       subj = rdf_res_get($2,$3,$8);
+--       pred = rdf_res_get($4,$5,$8);
+--       obj = rdf_res_get($6,$7,$8);
+--       if ((subj > 0) and (pred > 0) and (obj > 0)) then
+--         rval = rdf_stmt_get($1,subj,pred,obj,$8);
+--       end if;
+--       return rval;
+--     END;'
+--   language 'plpgsql';
 
 create function rdf_stmt_get(integer,text,text,text,text,text,text,integer)
   returns integer
@@ -647,12 +650,14 @@ create function rdf_stmt_get(integer,text,text,text,text,text,text,integer)
 
 -- statements with literals function
 
-create function rdf_stmt_new(integer,integer,integer,text)
+create function rdf_stmt_new(integer,integer,integer,text, text, text)
   returns integer
   /* $1: model id
    * $2: subject resource id
    * $3: predicate resource id
    * $4: object literal
+   * $5: object language
+   * $6: object datatype
    * returns: new resource id
    * 
    * no check for uniqueness (check is on other constraints)
@@ -662,65 +667,68 @@ create function rdf_stmt_new(integer,integer,integer,text)
       rval integer;
     BEGIN
       rval = nextval(''rdf_statement_seq'');
-      insert into rdf_statement values ($1,rval,$2,$3,null,$4);
+      insert into rdf_statement values ($1,rval,$2,$3,null,$4,$5,$6);
       return rval;
     END;'
   language 'plpgsql';
 
-create function rdf_stmt_new(integer,integer,text,
-  integer,text,text)
-  returns integer
-   /* $1: model id
-    * $2: subject namespace id
-    * $3: subject local name
-    * $4: predicate resource id
-    * $5: predicate local name
-    * $6: object literal
-    * returns: new resource id
-    * 
-    * no check (check is on other constraints)
-    */
-  as
-  ' DECLARE
-      subj integer;
-      pred integer;
-    BEGIN
-       subj = rdf_res_get($2,$3,1);
-       pred = rdf_res_get($4,$5,1);
-       return rdf_stmt_new($1,subj,pred,$6);
-    END;'
-  language 'plpgsql';
+-- create function rdf_stmt_new(integer,integer,text,
+--   integer,text,text)
+--   returns integer
+--    /* $1: model id
+--     * $2: subject namespace id
+--     * $3: subject local name
+--     * $4: predicate resource id
+--     * $5: predicate local name
+--     * $6: object literal
+--     * returns: new resource id
+--     * 
+--     * no check (check is on other constraints)
+--     */
+--   as
+--   ' DECLARE
+--       subj integer;
+--       pred integer;
+--     BEGIN
+--        subj = rdf_res_get($2,$3,1);
+--        pred = rdf_res_get($4,$5,1);
+--        return rdf_stmt_new($1,subj,pred,$6);
+--     END;'
+--   language 'plpgsql';
 
-create function rdf_stmt_new(integer,text,text,text,text,text)
-  returns integer
-   /* $1: model id
-    * $2: subject namespace
-    * $3: subject local name
-    * $4: predicate resource
-    * $5: predicate local name
-    * $6: object literal
-    * returns: new resource id
-    * 
-    * no check  for uniqueness (check is on other constraints)
-    */
-  as
-  ' DECLARE
-      subj integer;
-      pred integer;
-    BEGIN
-       subj = rdf_res_get($2,$3,1);
-       pred = rdf_res_get($4,$5,1);
-       return rdf_stmt_new($1,subj,pred,$6);
-    END;'
-  language 'plpgsql';
+-- /*
+-- create function rdf_stmt_new(integer,text,text,text,text,text)
+--   returns integer
+--    /* $1: model id
+--     * $2: subject namespace
+--     * $3: subject local name
+--     * $4: predicate resource
+--     * $5: predicate local name
+--     * $6: object literal
+--     * returns: new resource id
+--     * 
+--     * no check  for uniqueness (check is on other constraints)
+--     */
+--   as
+--   ' DECLARE
+--       subj integer;
+--       pred integer;
+--     BEGIN
+--        subj = rdf_res_get($2,$3,1);
+--        pred = rdf_res_get($4,$5,1);
+--        return rdf_stmt_new($1,subj,pred,$6);
+--     END;'
+--   language 'plpgsql';
 
-create function rdf_stmt_get(integer,integer,integer,text,integer)
+create function rdf_stmt_get(integer,integer,integer,text,text,text,integer)
   returns integer
   /* $1: model id
    * $2: subject resource id
    * $3: predicate resource id
    * $4: object literal
-   * $5: switch [0,1]
+   * $5: object language
+   * $6: object datatype
+   * $7: switch [0,1]
    *       0: do not create staement, if it does not exist
    *       1: create statement if it does not exist  
    * returns: new resource id
@@ -735,48 +743,49 @@ create function rdf_stmt_get(integer,integer,integer,text,integer)
         where model_id = $1 and subject = $2 and predicate = $3 and
 	      object_lit = $4;
       rval = coalesce(rval,-1);
-      if ((rval = -1) and ($5 = 1)) then /* create new statement */
-        rval = rdf_stmt_new($1,$2,$3,$4);
+      if ((rval = -1) and ($7 = 1)) then /* create new statement */
+        rval = rdf_stmt_new($1,$2,$3,$4,$5,$6);
       end if;
       return rval;
     END;'
   language 'plpgsql';
 
-create function rdf_stmt_get(integer,integer,text,
-  integer,text,text,integer)
-  returns integer
-   /* $1: model id
-    * $2: subject namespace id
-    * $3: subject local name
-    * $4: predicate resource id
-    * $5: predicate local name
-    * $6: object literal
-    * $7: switch [0,1]
-    *       0 = do not create non-existing resources
-    *       1 = create non-existing resource (& namespaces)
-    * returns: new resource id or negative error message
-    *   -1: resource does not exists
-    * 
-    * no check for uniqueness (check is on other constraints)
-    */
-  as
-  ' DECLARE
-      rval integer;
-      subj integer;
-      pred integer;
-    BEGIN
-      rval = -1;
-      subj = rdf_res_get($2,$3,$7);
-      pred = rdf_res_get($4,$5,$7);
-      if ((subj > 0) and (pred > 0)) then
-        rval = rdf_stmt_get($1,subj,pred,$6,$7);
-      end if;
-      return rval;
-    END;'
-  language 'plpgsql';
+-- create function rdf_stmt_get(integer,integer,text,
+--   integer,text,text,integer)
+--   returns integer
+--    /* $1: model id
+--     * $2: subject namespace id
+--     * $3: subject local name
+--     * $4: predicate resource id
+--     * $5: predicate local name
+--     * $6: object literal
+--     * $7: switch [0,1]
+--     *       0 = do not create non-existing resources
+--     *       1 = create non-existing resource (& namespaces)
+--     * returns: new resource id or negative error message
+--     *   -1: resource does not exists
+--     * 
+--     * no check for uniqueness (check is on other constraints)
+--     */
+--   as
+--   ' DECLARE
+--       rval integer;
+--       subj integer;
+--       pred integer;
+--     BEGIN
+--       rval = -1;
+--       subj = rdf_res_get($2,$3,$7);
+--       pred = rdf_res_get($4,$5,$7);
+--       if ((subj > 0) and (pred > 0)) then
+--         rval = rdf_stmt_get($1,subj,pred,$6,$7);
+--       end if;
+--       return rval;
+--     END;'
+--   language 'plpgsql';
   
 
-create function rdf_stmt_get(integer,text,text,text,text,text,integer)
+create function rdf_stmt_get(integer,text,text,text,text,text,text,text,
+	integer)
   returns integer
    /* $1: model id
     * $2: subject namespace
@@ -784,7 +793,9 @@ create function rdf_stmt_get(integer,text,text,text,text,text,integer)
     * $4: predicate resource
     * $5: predicate local name
     * $6: object literal
-    * $7:  switch [0,1]
+    * $7: object language
+    * $8: object datatype
+    * $9:  switch [0,1]
     *       0: do not create statement, if it does not exist
     *       1: create statement if it does not exist  
     * returns: new resource id
@@ -798,10 +809,10 @@ create function rdf_stmt_get(integer,text,text,text,text,text,integer)
       pred integer;
     BEGIN
       rval = -1; 
-      subj = rdf_res_get($2,$3,$7);
-      pred = rdf_res_get($4,$5,$7);
+      subj = rdf_res_get($2,$3,$9);
+      pred = rdf_res_get($4,$5,$9);
       if ((subj > 0) and (pred > 0)) then
-        rval = rdf_stmt_get($1,subj,pred,$6,$7);
+        rval = rdf_stmt_get($1,subj,pred,$6,$7,$8,$9);
       end if;
       return rval;
     END;'
@@ -1196,87 +1207,87 @@ create function rdf_cont_get(integer,text,text,text,text,integer,integer)
    END;'
   language 'plpgsql';
 
-create function rdf_cont_add_item(integer,text,text,text,text,integer,text,text)
-  returns integer
-  /* add a new item to end of container items list
-   *
-   * $1: model id
-   * $2: subject namespace
-   * $3: subject local name
-   * $4: predicate namespace
-   * $5: predicate local name
-   * $6: container type
-   *	 1 = rdf:Bag
-   *	 2 = rdf:Sequence
-   *	 3 = rdf:Alternative
-   * $7: new item namespace
-   * $8: new item local name
-   * returns id of the new item resource
-   *
-   * Result in model is:
-   *  
-   * [subject] --[predicate]--> [container] --[rdf:_(next_id)]--> [new item]
-   *                                |
-   *                                 --[rdf:type]--> [rdf:(Bag|Seq|Alt)]
-   *  
-   * no check of already existing container type is erforced
-   */
-  as
-  'DECLARE
-     cont integer;
-     li integer;
-     subj integer;
-     pred integer;
-     obj integer;
-     dummy integer;
-   BEGIN
-     subj = rdf_cont_get($1,$2,$3,$4,$5,$6,1);
-     pred = rdf_res_get(rdfns(),rdf_cont_next_li($1,$2,$3,$4,$5),1);
-     obj = rdf_res_get($7,$8,1);
-     dummy = rdf_stmt_get($1,subj,pred,obj,1);
-     return obj;
-   END;'
-  language 'plpgsql';
+-- create function rdf_cont_add_item(integer,text,text,text,text,integer,text,text)
+--   returns integer
+--   /* add a new item to end of container items list
+--    *
+--    * $1: model id
+--    * $2: subject namespace
+--    * $3: subject local name
+--    * $4: predicate namespace
+--    * $5: predicate local name
+--    * $6: container type
+--    *	 1 = rdf:Bag
+--    *	 2 = rdf:Sequence
+--    *	 3 = rdf:Alternative
+--    * $7: new item namespace
+--    * $8: new item local name
+--    * returns id of the new item resource
+--    *
+--    * Result in model is:
+--    *  
+--    * [subject] --[predicate]--> [container] --[rdf:_(next_id)]--> [new item]
+--    *                                |
+--    *                                 --[rdf:type]--> [rdf:(Bag|Seq|Alt)]
+--    *  
+--    * no check of already existing container type is erforced
+--    */
+--   as
+--   'DECLARE
+--      cont integer;
+--      li integer;
+--      subj integer;
+--      pred integer;
+--      obj integer;
+--      dummy integer;
+--    BEGIN
+--      subj = rdf_cont_get($1,$2,$3,$4,$5,$6,1);
+--      pred = rdf_res_get(rdfns(),rdf_cont_next_li($1,$2,$3,$4,$5),1);
+--      obj = rdf_res_get($7,$8,1);
+--      dummy = rdf_stmt_get($1,subj,pred,obj,1);
+--      return obj;
+--    END;'
+--   language 'plpgsql';
 
-create function rdf_cont_add_item(integer,text,text,text,text,integer,text)
-  returns integer
-  /* add new item to end of container items list
-   *
-   * $1: model id
-   * $2: subject namespace
-   * $3: subject local name
-   * $4: predicate namespace
-   * $5: predicate local name
-   * $6: container type
-   *	 1 = rdf:Bag
-   *	 2 = rdf:Sequence
-   *	 3 = rdf:Alternative
-   * $7: new literal item value
-   * returns id of the new statement
-   *
-   * Result in model is:
-   *  
-   * [subject] --[predicate]--> [container] --[rdf:_(next_id)]--> "new item"
-   *                                |
-   *                                 --[rdf:type]--> [rdf:(Bag|Seq|Alt)]
-   *  
-   * no check of already existing container type is erforced
-   */
-  as
-  'DECLARE
-     cont integer;
-     li integer;
-     subj integer;
-     pred integer;
-   BEGIN
-     subj = rdf_cont_get($1,$2,$3,$4,$5,$6,1);
-     pred = rdf_res_get(rdfns(),rdf_cont_next_li($1,$2,$3,$4,$5),1);
-     return rdf_stmt_get($1,subj,pred,$7,1);
-   END;'
-  language 'plpgsql';
+-- create function rdf_cont_add_item(integer,text,text,text,text,integer,text)
+--   returns integer
+--   /* add new item to end of container items list
+--    *
+--    * $1: model id
+--    * $2: subject namespace
+--    * $3: subject local name
+--    * $4: predicate namespace
+--    * $5: predicate local name
+--    * $6: container type
+--    *	 1 = rdf:Bag
+--    *	 2 = rdf:Sequence
+--    *	 3 = rdf:Alternative
+--    * $7: new literal item value
+--    * returns id of the new statement
+--    *
+--    * Result in model is:
+--    *  
+--    * [subject] --[predicate]--> [container] --[rdf:_(next_id)]--> "new item"
+--    *                                |
+--    *                                 --[rdf:type]--> [rdf:(Bag|Seq|Alt)]
+--    *  
+--    * no check of already existing container type is erforced
+--    */
+--   as
+--   'DECLARE
+--      cont integer;
+--      li integer;
+--      subj integer;
+--      pred integer;
+--    BEGIN
+--      subj = rdf_cont_get($1,$2,$3,$4,$5,$6,1);
+--      pred = rdf_res_get(rdfns(),rdf_cont_next_li($1,$2,$3,$4,$5),1);
+--      return rdf_stmt_get($1,subj,pred,$7,1);
+--    END;'
+--   language 'plpgsql';
 
 
-/* ============================================================  */
+-- /* ============================================================  */
 
 
 -- reification methods

@@ -39,7 +39,7 @@
               SourceType =&gt; 'file',
               #parserOptions
               BaseURI =&gt; &quot;<A HREF="http://www.foo.com/&quot">http://www.foo.com/&quot</A>;,
-              InlineURI =&gt; &quot;<A HREF="http://www.bar.com/&quot">http://www.bar.com/&quot</A>;
+              BNodePrefix =&gt; &quot;genid&quot;
              )
   my $parser = new RDF::Core::Model::Parser(%options);
   $parser-&gt;parse;</PRE>
