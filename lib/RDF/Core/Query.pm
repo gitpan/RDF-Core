@@ -120,9 +120,9 @@ sub query {
     my @tokens = $self->_tokenize($queryString);
     $self->_parse (\@tokens);
     $self->_syntaxTree($self->{QUERY}[0],50,'')
-    if $self->getOptions->{Debug};
-    my $rs = $self->getOptions->{Evaluator}->evaluate($self->{QUERY}[0]);
-    return $rs;
+      if $self->getOptions->{Debug};
+    $self->getOptions->{Evaluator}->evaluate($self->{QUERY}[0]);
+    return 1;
 
 }
 
@@ -332,17 +332,17 @@ sub _str2Token {
 	$retVal .= $self->_str2Token($str, $pos, TOK_NAME);
     } elsif ($tokenType eq TOK_NAME) {
 	my $subpos = $$pos ;
-	if (substr ($$str, $subpos ,1) =~ /[a-zA-Z]/ ) {
+	if (substr ($$str, $subpos ,1) =~ /[a-zA-Z_]/ ) {
 	    $retVal = substr ($$str, $subpos,1);
 	} else {
 	    croak "Syntax error: Invalid name at position ".$$pos
 	      ."\n".substr ($$str, $$pos,30);
 	}
 	while (defined (my $char = substr ($$str, ++$subpos, 1))) {
-	    if ($char =~ /\W/) {
-		last;
-	    } else {
+	    if ($char =~ /[a-zA-Z0-9_]/) {
 		$retVal .= $char;
+	    } else {
+		last;
 	    }
 	}
 	$$pos = $subpos;
@@ -645,6 +645,9 @@ sub _parse {
 	    if (@context[@context - 1]->[0] eq Q_EXPRESSION) {
 		pop @context;  #Q_EXPRESSION
 	    }
+	    if (@context[@context - 1]->[0] eq Q_TARGET) {
+		pop @context;  #Q_TARGET
+	    }
 	    if (@context[@context - 1]->[0] eq Q_CLASS) {
 		#finish Q_CLASS and continue with some PATH
 		pop @context;  #Q_CLASS
@@ -848,6 +851,16 @@ RDF::Core::Query Implementation of query language
   my %namespaces = (Default => 'http://myApp.gingerall.org/ns#',
                     ns     => 'http://myApp.gingerall.org/ns#',
 		   );
+  sub printRow {
+    my (@row) = @_;
+	    
+    foreach (@row) {
+	my $label = defined($_) ? $_->getLabel : 'NULL';
+	print $label, ' ';
+    }
+    print "\n";
+  }
+
   my $functions = new RDF::Core::Function(Data => $model,
 	  				  Schema => $schema,
 					  Factory => $factory,
@@ -858,23 +871,18 @@ RDF::Core::Query Implementation of query language
      Factory => $factory,        #an instance of RDF::Core::NodeFactory
      Functions => $functions,
      Namespaces => \%namespaces,
+     Row => \&printRow
     );
+
   my $query = new RDF::Core::Query(Evaluator=> $evaluator);
 
   my $result = $query->query('Select ?x.title 
                               From store.book{?x}.author{?y} 
                               Where ?y = "Lewis"');
-  foreach my $row (@$result) {
-      foreach my $node (@$row) {
-	  my $label = defined($node) ? $node->getLabel : 'NULL';
-	  print $label, ' ';
-      }
-      print "\n";
-  }
 
 =head1 DESCRIPTION
 
-Query module together with RDF::Core::Evaluator and RDF::Core::Function implements a query language. A result of a query is a set of rows, each row containing resources or literals or undef values.
+Query module together with RDF::Core::Evaluator and RDF::Core::Function implements a query language. A result of a query is a set of handler calls, each call corresponding to one row of data returned.
 
 =head2 Interface
 
@@ -894,7 +902,7 @@ RDF::Core::Evaluator object.
 
 =item * query($queryString)
 
-Evaluates $queryString and returns an array reference, each element points to an array again and that inner array (a row) contains references to RDF::Core::Resource or RDF::Core::Literal or it's value is not defined.
+Evaluates $queryString. There is an option Row in RDF::Core::Evaluator, which contains a function to handle a row returned from query. The handler is called for each row of the result. Parameters of the handler are RDF::Core::Resource or RDF::Core::Literal or undef values.
 
 =back
 

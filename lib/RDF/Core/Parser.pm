@@ -45,6 +45,7 @@ require XML::Parser;
 # XML
 use constant XML_NS  => 'http://www.w3.org/XML/1998/namespace';
 use constant XMLA_LANG => XML_NS . 'lang';
+use constant XMLA_BASE => XML_NS . 'base';
 
 # RDF
 
@@ -188,29 +189,6 @@ sub _expandAttributes {
     return $ret;
 }
 
-sub _getAbout {
-    my ($self, $attrs) = @_;
-    if (exists $$attrs{+RDFA_ABOUT}) {
-	return delete $$attrs{+RDFA_ABOUT};
-    } else {
-	return undef;
-# 	return {
-# 		name => 'about',
-# 		ns => RDF_NS,
-# 		value => $self->_getImplicitURI,
-# 	       };
-    }
-}
-
-sub _getResource {
-    my ($self, $attrs) = @_;
-    if (exists $$attrs{+RDFA_RESOURCE}) {
-	return delete $$attrs{+RDFA_RESOURCE};
-    } else {
-	return undef;
-    }
-}
-
 sub _getElementResource {
     my ($self, $element) = @_;
     undef my $ret;
@@ -276,6 +254,8 @@ sub _doAssert {
 	    $self->{urimembers}{$buri} = [] 
 	      unless exists $self->{urimembers}{$buri};
 	    push @{$self->{urimembers}{$buri}}, $suri;
+	    #collect bag members for later assertion
+	    push @{$subject->{bagmembers}}, $suri;
 	}
     }
 }
@@ -480,7 +460,9 @@ sub _assertAboutEach {
 
 sub _getLIURI {
     my ($self, $subject) = @_;
-    my $id = "_" . ++$subject->{bag_unique};
+    #rdf:li element can appear outside rdf:Description element
+    #(i.e. $subject can be undef) 
+    my $id = "_" . ++($subject || $self)->{li_counter};
     return (RDF_NS, $id, RDF_NS . $id);
 }
 
@@ -499,7 +481,7 @@ sub __checkParseType {
 }
 
 sub _updateElement {
-    my ($self, $expat, $element, $attrs) = @_;
+    my ($self, $element, $attrs) = @_;
     #rdf attributes
     my $about = delete $$attrs{+RDFA_ABOUT};
     my $abouteach = delete $$attrs{+RDFA_ABOUTEACH};
@@ -509,46 +491,63 @@ sub _updateElement {
     my $rdftype = delete $$attrs{+RDFA_TYPE};
     my $resource = delete $$attrs{+RDFA_RESOURCE};
     my $xmllang = delete $$attrs{+XMLA_LANG};
-    $element->{about} = $about ? $about->{value} : undef;
+    my $xmlbase = delete $$attrs{+XMLA_BASE};
+    $element->{about} =  $about ? $about->{value} : undef;
     $element->{abouteach} = $abouteach ? $abouteach->{value} : undef;
     $element->{id} = $id ? $id->{value} : undef;
     $element->{bagid} = $bagid ? $bagid->{value} : undef;
+    $element->{bagmembers} = [];
     $element->{parsetype} = $parsetype ? $parsetype->{value} : undef;
     __checkParseType($element);
     $element->{rdftype} = $rdftype ? $rdftype->{value} : undef;
     $element->{resource} = $resource ? $resource->{value} : undef;
     $element->{xmllang} = $xmllang ? $xmllang->{value} : undef;
+    $element->{baseuri} = $xmlbase ? $xmlbase->{value} : undef;
 
     #create uri/about-uri (from about or id)
-    if ($element->{about}) {
-	my $u = new URI($element->{about});
-	$u = $u->abs($self->{baseuri});
+    if (defined $element->{about}) {
+	my $baseURI = new URI($self->_findBaseURI);
+	my $u;
+	if ($element->{about} eq '') {
+	    #base uri with fragment removed
+	    $u = $baseURI;
+	    if ($baseURI->fragment) {
+		my $scheme = $u->scheme;
+		my $opaque = $u->opaque;
+		$u = new URI($opaque);
+		$u->scheme($scheme);
+	    }
+	} else {
+	    $u = new_abs URI($element->{about}, $baseURI);
+	}
 	$element->{uri} = $u->as_string;
-    } elsif ($element->{id}) {
-	my $u = new URI($self->{baseuri});
+    } elsif (defined $element->{id}) {
+	my $baseURI = new URI($self->_findBaseURI);
+	my $u = new URI($baseURI);
 	$u->fragment($element->{id});
 	$element->{uri} = $u->as_string;
     } elsif ($element->{abouteach}) {
-	my $u = new URI($self->{baseuri});
+	my $u = new URI($self->_findBaseURI);
 	#$u->fragment($element->{abouteach}); _fixme_
-	$element->{abouturi} = $self->{baseuri} . $element->{abouteach};
+	$element->{abouturi} = $self->_findBaseURI . $element->{abouteach};
     } 
     if ($element->{resource}) {
 	my $u = new URI($element->{resource});
-	$element->{resource} = $u->abs($self->{baseuri});
+	$element->{resource} = $u->abs($self->_findBaseURI);
     }
 
     #create bagid uri
     if ($element->{bagid}) {
-	my $u = new URI($self->{baseuri});
+	my $u = new URI($self->_findBaseURI);
 	$u->fragment($element->{bagid});
 	$element->{baguri} = $u->as_string;
     }
 
     #rename element if it is the rdf:li (I hope it is correct)
     if ($element->{qname} eq RDF_LI) {
-	#$expat->xpcroak("deprecated element") if $self->{strict};
-	my ($ns, $name, $uri) = $self->_getLIURI(${$self->{subjects}}[-1]);
+	my $subject = @{$self->{subjects}} > 0 
+	  ? ${$self->{subjects}}[-1] : undef;
+	my ($ns, $name, $uri) = $self->_getLIURI($subject);
 	#we rename the whole element, hopefuly it doesn't matter
 	$element->{ns} = $ns;
 	$element->{name} = $name;
@@ -601,7 +600,7 @@ sub _analyzePath {
     } 
     elsif ($pt == NODE_RDF) {
 	$ct = NODE_TYPED if $ct == NODE_UNKNOWN;
-	$expat->xpcroak("invlaid first level element") unless $ct & NODE_OBJ;
+	$expat->xpcroak("invalid first level element") unless $ct & NODE_OBJ;
     }
     elsif ($pt == NODE_DESCRIPTION || $pt == NODE_TYPED) {
 	$expat->xpcroak("invalid node in the Description element") 
@@ -782,7 +781,7 @@ sub start {
     my $attrs = $self->_expandAttributes($element, %attrs);
 
     #update element (rename, read red attributes)
-    $self->_updateElement($expat, $element, $attrs);
+    $self->_updateElement($element, $attrs);
 
     #now we have all (almost) information to decide on node type
     #we must check the validity and update element status
@@ -815,7 +814,7 @@ sub end {
     my $subject = $self->{subjects}[-1];
 
     if (($element->{type} & NODE_PROPERTY_MASK)) {
-	$self->_assertElement($expat, ${$self->{subjects}}[-1], $element);
+	$self->_assertElement($expat, $subject, $element);
 	#update parent type (usefull for containers)
 	if ($element->{qname} eq RDF_TYPE) {
 	    my $ctype = $RDF_TYPES{$self->_getElementResource($element)};
@@ -830,10 +829,27 @@ sub end {
 	    push @{$subject->{members}}, $uri if $uri;
 	}
     }
-
-    #remember aboutEach stuff
-    if ($element->{subject} && $element->{containertype}) {
-	$self->{urimembers}{$element->{uri}} = $element->{members};
+    if ($element->{subject}) {
+	#remember aboutEach stuff
+	if ( $element->{containertype}) {
+	    $self->{urimembers}{$element->{uri}} = $element->{members};
+	}
+	if ($element->{bagid}) {
+	    #assert bags created by rdf:bagID attr
+	    my $bagElement = {uri=>$element->{baguri}};
+	    $self->_assertRDFType($bagElement,NODE_BAG);
+	    foreach (@{$element->{bagmembers}}) {
+		my ($ns, $name, $uri) = $self->_getLIURI($bagElement);
+		my %params = (
+			      subject_uri => $self->_uri($bagElement),
+			      predicate_ns => $ns,
+			      predicate_name => $name,
+			      predicate_uri => $uri,
+			      object_uri => $_,
+			     );
+		$self->_doAssert($bagElement,\%params);
+	    }
+	}
     }
 
     pop @{$self->{subjects}} if $element->{subject};
@@ -877,6 +893,17 @@ sub _findNS {
     foreach my $element (reverse @{$self->{path}}) {
 	return $element->{nslist}{$abbr} if exists $element->{nslist}{$abbr};
     }
+}
+sub _findBaseURI {
+    my ($self) = @_;
+    my $baseURI = $self->{baseuri};
+    foreach my $element (reverse @{$self->{path}}) {
+	if (defined $element->{baseuri}) {
+	    $baseURI = $element->{baseuri};
+	    last;
+	}
+    }
+    return $baseURI;
 }
 
 sub _getHandlers {
@@ -945,78 +972,6 @@ sub _getImplicitURI {
 __END__
 
 
-#     # Description, containers, li
-#     if ($rdftype = $self->_elementType($element)) {
-# 	#all rdf elements are subjects (???)
-# 	$element->{subject} = 1;
-
-# 	#create the subject item
-# 	$subject = {
-# 		    uri => $element->{about} || $self->_getImplicitURI(),
-# 		    id => $element->{id},
-# 		    bagid => $element->{bagid},
-# 		   };
-# 	push @{$self->{subjects}}, $subject;
-
-# 	#the parent element might be predicate and need
-# 	#update its resourcse reference
-# 	my $parent = ${$self->{path}}[-2];
-# 	$parent->{resource} = $subject->{uri} unless $parent->{subject};
-
-# 	# create statements from non-RDF attributes
-# 	$self->_assertAttributes($subject, $attrs);
-
-# 	if ($rdftype & RDFT_CONTAINER) {
-# 	    $self->_assertRDFType($subject, $rdftype);
-# 	}
-#     }
-#     elsif ($element->{qname} eq RDF_LI) {
-# 	my ($ns, $name, $uri) = $self->_getLIURI(${$self->{subjects}}[-1]);
-# 	#we rename the whole element, hopefuly it doesn't matter
-# 	$element->{ns} = $ns;
-# 	$element->{name} = $name;
-# 	$element->{qname} = $uri;
-
-# 	#my $resource = $self->_getResource($attrs);
-# 	#$element->{resource} = $resource->{value} if $resource;
-# 	$element->{assert} = 1;
-#     }
-#     # other namespaces
-#     else {
-# 	#$element->{foreign} = 1;
-
-# 	#my $resource = $self->_getResource($attrs);
-# 	#$element->{resource} = $resource->{value} if $resource;
-# 	$element->{assert} = 1;
-
-# 	#in the case our parent is not a subject
-# 	#we're probably parsing abbr. syntax 3. we have to
-# 	#create a fake subject, and bind it to the parent element
-# 	#we have to spit out the rdf:type as well
-# 	my $parent = ${$self->{path}}[-2];
-# 	unless ($parent->{subject}) {
-# 	    $subject = {
-# 			uri => $parent->{about} || $self->_getImplicitURI,
-# 			id => $parent->{id},
-# 			bagid => $parent->{bagid},
-# 		       };
-# 	    push @{$self->{subjects}}, $subject;
-# 	    $parent->{subject} = 1;
-# 	    $parent->{early_subject} = 1;
-# 	    $parent->{resource} = $subject->{uri};
-# 	    $self->_assertRDFTypeElement($subject, $parent);
-# 	}
-	
-# 	# assert attributes; abbr. syntax 2
-# 	if ($element->{resource}) {
-# 	    my $_subject = {
-# 			    uri => $element->{resource},
-# 			    id => $element->{id},
-# 			    bagid => $element->{bagid},
-# 			   };
-# 	    $self->_assertAttributes($_subject, $attrs);
-# 	}
-#     }
 
 =head1 NAME
 
@@ -1032,7 +987,6 @@ A module for parsing XML documents containing RDF data. It's based on XML::Parse
 
   my %options = (Assert => \&handleAssert,
                  BaseURI => "http://www.foo.com/",
-                 InlineURI => "http://www.bar.com/"
                 );
   my $parser = new RDF::Core::Parser(%options);
   $parser->parseFile('./rdfFile.xml');

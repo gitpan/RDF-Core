@@ -36,7 +36,6 @@ package RDF::Core::Storage::Postgres;
 use strict;
 require Exporter;
 
-our $VERSION = '0.02';
 our @ISA = qw(RDF::Core::Storage);
 
 use Carp;

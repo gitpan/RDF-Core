@@ -2,7 +2,27 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
-Vesion 0.1
+Version 0.15
+April 16, 2002
+----------------
+	- parser recognizes and handles xml:base attribute (bug 771)
+	- parser bug with rdf:bagID fixed (bug 774)
+	- parser bug with rdf:li fixed (bug 776)
+	- query results are not returned in array of rows, a callback 
+	  function is called for each row instead
+	- query evaluation speed was improved by applying conditions 
+	  as soon as possible
+	- DB_File storage handles SIGINT to protect data consistency
+	- DB_File storage has a new option Sync which says how often
+	  it should synchronize cache with disk
+
+
+Version 0.11
+March 28, 2002 
+----------------
+	- the damned README added (was missing in 0.10 again)
+
+Version 0.10
 March 27, 2002 
 ----------------
 	- countStmts now works with DBMS storage (bug 768)
@@ -27,3 +47,6 @@ Version 0.01
 October 3, 2001
 ----------------
 	- original version; created by h2xs 1.20 
+
+
+Note: Bug references refer to http://bugzilla.gingerall.cz/ .

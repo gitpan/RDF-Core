@@ -75,9 +75,6 @@ sub new {
     $pkg = ref $pkg || $pkg;
     my $self = {};
     $self->{_options} = \%options;
-#     unless ($options{Functions}) {
-#  	$self->{_options}->{Functions} = new RDF::Core::Function;
-#     }
     bless $self, $pkg;
 }
 sub getOptions {
@@ -85,22 +82,20 @@ sub getOptions {
     return $self->{_options};
 }
 
-############################################################
-# Evaluator part
-############################################################
-# This one wants to be elementary, even naive approach, using
-# existing model interface only
 
 sub evaluate {
     my ($self, $query) = @_;
-    my $rs;
-    my $descr;
+    my $rs = [[undef]];
+    my $descr = {};
+    $self->{_query} = $query;
     $self->_namespaces($query);
-    ($rs,$descr) = $self->_prepareResultSet($query);
-    $self->_applyConditions($rs, $descr, $query);
-    $self->_formatResult($rs, $descr, $query);
-    return $rs;
-    
+    if ($self->getOptions->{TURBO}) {
+	$self->_prepareResultSet_new($query, $rs, $descr)
+    } else {
+	($rs, $descr) = $self->_prepareResultSet($query);
+	$self->_applyConditions($rs, $descr, $query->{+Q_CONDITION}->[0]);
+	$self->_formatResult($rs, $descr, $query);
+    }
 }
 
 ############################################################
@@ -115,6 +110,7 @@ sub _prepareResultSet {
     my $idx = 0;
     my $description = $descriptions->[0] = {};
     my $rs = $resultSets->[0] = [[undef]];
+    my @condSet = $self->_analyzeCondition($query->{+Q_CONDITION}->[0]);
     my $wantNewSet;
     foreach (@{$query->{+Q_SOURCE}->[0]->{+Q_SOURCEPATH}}) {
 	$wantNewSet = @$rs > 100 ? 1 : 0;
@@ -122,6 +118,7 @@ sub _prepareResultSet {
 	    $idx++;
 	    $description = $descriptions->[$idx] = {};
 	    $rs = $resultSets->[$idx] = [[undef]];
+	    @condSet = $self->_analyzeCondition($query->{+Q_CONDITION}->[0]);
 	}
 
 	#process $subject - a beginning of the path
@@ -138,9 +135,10 @@ sub _prepareResultSet {
 	    my $class = $self->_extractElement
 	      ($_->{+Q_CLASS}->[0]->{+Q_ELEMENT}->[0], 
 	       $_->{+Q_CLASS}->[0]->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0]);
-	    $self->_funcParams($rs,$description,undef, $_->{+Q_CLASS}->[0])
+	    $self->_funcParams($rs,$description,undef, 
+			       $class->[0]{elementpath})
 	      if $class->[0]{type} eq Q_FUNCTION;
-	    $self->_expandResult($rs, $description, $subject, 
+	    $self->_expandResult($rs, $description, 'S', $subject, 
 				 [{object=>$type}], $class);
 	}
 
@@ -167,16 +165,18 @@ sub _prepareResultSet {
 				       $_->{+Q_TARGET}->[0])
 		      if $target->[0]{type} eq Q_FUNCTION;
 		}
-		$self->_expandResult($rs, $description, $subject, $element, 
-				     $target);
+		$self->_expandResult($rs, $description, 'O', $subject, 
+				     $element, $target);
 	    } else {
-		$self->_expandResult($rs, $description, $subject, $element);
+		$self->_expandResult($rs, $description, 'O', $subject, 
+				     $element);
 	    }
 	    
 	} else {
 	    $self->_singularResult($rs, $description, $subject);
 	}
-	
+	$self->_checkConditions ($rs, $description, \@condSet);
+
 	for (my $i = 2; $i < @{$_->{+Q_ELEMENT}} ; $i++) {
 	    #iterate through sourcepath elements
 	    #make "step" over the element
@@ -195,19 +195,131 @@ sub _prepareResultSet {
 				   $_->{+Q_TARGET}->[0])
 		  if $target->[0]{type} eq Q_FUNCTION;
 		
-		$self->_expandResult($rs, $description, undef, $element, 
+		$self->_expandResult($rs, $description, 'O', undef, $element, 
 				     $target);
 	    } else {
-		$self->_expandResult($rs,$description, undef, $element);
+		$self->_expandResult($rs,$description, 'O', undef, $element);
 	    }
+	    $self->_checkConditions ($rs, $description, \@condSet);
 	}
-	
     }
     return $self->_joinResults($resultSets, $descriptions);
 }
 
+sub _prepareResultSet_new {
+    #get result set and it's description
+    my ($self, $query, $rs, $description, $position) = @_;
+    return unless $self->getOptions->{TURBO};
+    warn "Entering _prepareResultSet\n" if $self->getOptions->{Debug};
+    
+    #position determines what's already done in SourcePath
+    $position ||= {};
+    #an index of path to process
+    $position->{path} ||= 0;
+    #was class processed?
+    $position->{class} ||= 0;
+    #an index of element in path to process
+    $position->{element} ||= 0;
+    
+    #make your own copy
+    my %position = %$position;
+    
+    my @condSet = $self->_analyzeCondition($query->{+Q_CONDITION}->[0]);
+    # unless defined @condSet ;
+    $self->_checkConditions ($rs, $description, \@condSet);
+    
+    #check position, you may be finished already 
+    my $finished;
+    my $path = $query->{+Q_SOURCE}[0]{+Q_SOURCEPATH}[$position{path}];
+    if ($position{element} >= @{$path->{+Q_ELEMENT}}) {
+	#next path if possible
+	$position{path}++;
+	if ($position{path} < @{$query->{+Q_SOURCE}->[0]->{+Q_SOURCEPATH}}) {
+	    $position{element} = 0;
+	    $position{class} = 0;
+	    $path = $query->{+Q_SOURCE}[0]{+Q_SOURCEPATH}[$position{path}];
+	} else {
+	    $finished = 1;
+	}
+    }
+    if ($finished) {
+	$self->_formatResult($rs, $description, $query);
+	warn "Leaving _prepareResultSet\n" if $self->getOptions->{Debug};
+	return;
+    }
+    
+    #process $subject - a beginning of the path
+    my $subject;
+    if ($position{element} == 0) {
+	$subject = $self->_extractElement($path->{+Q_ELEMENT}->[0],
+					  $path->{+Q_VARIABLE}->[0]->
+					  {+Q_NAME}->[0]);
+	if ($subject->[0]{type} eq Q_FUNCTION) {
+	    $self->_funcParams($rs,$description,undef,
+			       $path->{+Q_ELEMENT}->[0]);
+	}
+	$position{element}++;
+    } else {
+	$subject = undef;
+    }
+    #process class info (rdf:type)
+    if (exists $path->{+Q_CLASS} and !$position{class}) {
+	my $type = $self->getOptions->{Factory}->
+	  newResource(RDF_NS, 'type');
+	my $class = $self->_extractElement
+	  ($path->{+Q_CLASS}->[0]->{+Q_ELEMENT}->[0], 
+	   $path->{+Q_CLASS}->[0]->{+Q_VARIABLE}->[0]->{+Q_NAME}->[0]);
+	$self->_funcParams($rs,$description,undef, $class->[0]{elementpath})
+	  if $class->[0]{type} eq Q_FUNCTION;
+	$position{class} = 1;
+	$self->_expandResult($rs, $description, 'S', $subject, 
+			     [{object=>$type}], $class, \%position);
+    } else {
+	#process $element - the first property found on the path
+	my $element;
+	if (exists $path->{+Q_ELEMENT}->[$position{element}] ) {
+	    $element = $self->_extractElement
+	      ($path->{+Q_ELEMENT}->[$position{element}], 
+	       $path->{+Q_VARIABLE}->[$position{element}]->{+Q_NAME}->[0]);
+	    $self->_funcParams($rs,$description,$subject,
+			       $path->{+Q_ELEMENT}->[$position{element}])
+	      if $element->[0]{type} eq Q_FUNCTION;
+	    $position{element}++;
+	    
+	    #if the path has only one property and leads to target,process here
+	    if ($path->{+Q_HASTARGET} && @{$path->{+Q_ELEMENT}}
+		== $position{element}) {
+		my $target;
+		if ($path->{+Q_TARGET}[0]{+Q_EXPRESSION}) {
+		    $target = $self->_evalExpression(undef,undef,
+						     $path->{+Q_TARGET}[0]);
+		    $target = [{object=>$target}];
+		} else {
+		    $target =  $self->_extractElement
+		      ($path->{+Q_TARGET}[0],undef);
+		    $self->_funcParams($rs,$description,undef,
+				       $path->{+Q_TARGET}->[0])
+		      if $target->[0]{type} eq Q_FUNCTION;
+		}
+		$self->_expandResult($rs, $description, 'O', $subject, 
+				     $element, $target, \%position);
+	    } else {
+		$self->_expandResult($rs, $description, 'O', $subject, 
+				     $element, undef, \%position);
+	    }
+	} else {
+	    $self->_singularResult($rs, $description, $subject, \%position);
+	}
+    }
+    
+    warn "Leaving _prepareResultSet\n" if $self->getOptions->{Debug};
+    
+    return ;
+}
+
 sub _expandResult {
-    my ($self, $rs, $description, $roots, $elements, $targets) = @_;
+    my ($self, $rs, $description, $join, $roots, 
+	$elements, $targets, $position) = @_;
     my @newRS;
     my %newDescr = %$description;
     my $targets = $targets || [{object=>undef}];
@@ -271,8 +383,22 @@ sub _expandResult {
 			    push @row, $st->getSubject if $pushSubject;
 			    push @row, $st->getPredicate if $pushPredicate;
 			    push @row, $st->getObject if $pushObject;
-
-			    @row[0] = $st->getObject;
+			    if ($join eq 'S') {
+				@row[0] = $st->getSubject;
+			    } elsif ($join eq 'O') {
+				@row[0] = $st->getObject;
+			    } else {
+				croak "Join point not defined\n";
+			    }
+##########
+			    if ($position) {
+				my @subRS = [@row];
+				my %subDescr = %newDescr;
+				$self->_prepareResultSet_new
+				  ($self->{_query}, \@subRS, \%subDescr, 
+				   $position);
+			    }
+##########
 			    push @newRS, \@row;
 			}
 			$enum->close;
@@ -288,10 +414,28 @@ sub _expandResult {
 
 sub _singularResult {
     #get all nodes from the model
-    my ($self, $rs, $description, $elements) = @_;
+    my ($self, $rs, $description, $elements, $position) = @_;
     my %newDescr = %$description;
     my @newRS;
     
+    my $pushElement = 0;
+    my $lastIndex;
+    if (defined $rs->[0]) {
+	$lastIndex = @{$rs->[0]} ;
+    } else {
+	$lastIndex = 0;
+    }
+    if ($elements->[0]{type} eq Q_VARIABLE && 
+	!exists $description->{$elements->[0]{name}}) {
+	$pushElement = 1;
+	$newDescr{$elements->[0]{name}} = $lastIndex;
+    }
+    if (defined $elements->[0]{binding}&& 
+	!exists $description->{$elements->[0]{binding}}) {
+	$pushElement = 1;
+	$newDescr{$elements->[0]{binding}} = $lastIndex;
+    }
+
     for (my $i = 0; $i < @$rs; $i++) {
 	my %res;
 	my %lit;
@@ -301,55 +445,71 @@ sub _singularResult {
 						$description,$element);
 	    #return current result set if variable is already resolved
 	    # - this doesn't work with binding
-#	    return @$rs if $self->_evalVar($rs->[$i],$description,
-#					   $element->{name}, 'RELAX');
-	
+	    #	    return @$rs if $self->_evalVar($rs->[$i],$description,
+	    #					   $element->{name}, 'RELAX');
+	    
 	    #what does the next statement mean?
-#	    next if $element->{type} eq Q_NODE && 
-#	      defined $element->{object} && 
-#		$element->{object}->isLiteral;
-
-		my $found = $self->_getStmts($rs->[$i], $description, 
-					     $element, undef, undef);
-		foreach my $enum (@{$found}) {
-		    while (my $st = $enum->getNext) {
-			next unless $self->_bindingCheck
-			  ($rs->[$i], $description,$element, $st->getSubject);
-			my @row = @{$rs->[$i]};
-			unless ($res{$st->getSubject->getURI}) {
-			    if ($element->{type} eq Q_VARIABLE ||
-				defined $element->{binding}) {
-				push @row, $st->getSubject;
-			    }
-			    $res{$st->getSubject->getURI} = 1;
-			    push @newRS, \@row;
-			}
-		    }
-		    $enum->close;
-		}
-		
-		$found = $self->_getStmts($rs->[$i], $description, 
-					  undef, $element, undef);
-		foreach my $enum (@{$found}) {
-		    while (my $st = $enum->getNext) {
-			next unless $self->_bindingCheck
-			  ($rs->[$i],$description,$element,$st->getPredicate);
-			my @row = @{$rs->[$i]};
-			unless ($res{$st->getPredicate->getURI}) {
-			    if ($element->{type} eq Q_VARIABLE ||
-				defined $element->{binding}) {
-				push @row, $st->getPredicate;
-			    }
-			    $res{$st->getPredicate->getURI} = 1;
-			    push @newRS, \@row;
-			}
-		    }
-		    $enum->close;
-		}
-
+	    #	    next if $element->{type} eq Q_NODE && 
+	    #	      defined $element->{object} && 
+	    #		$element->{object}->isLiteral;
 	    
 	    my $found = $self->_getStmts($rs->[$i], $description, 
-					 undef, undef, $element);
+					 $element, undef, undef);
+	    foreach my $enum (@{$found}) {
+		while (my $st = $enum->getNext) {
+		    next unless $self->_bindingCheck
+		      ($rs->[$i], $description,$element, $st->getSubject);
+		    my @row = @{$rs->[$i]};
+		    unless ($res{$st->getSubject->getURI}) {
+			if ($pushElement) {
+			    push @row, $st->getSubject;
+			}
+			##########
+			if ($position) {
+			    my @subRS = [@row];
+			    my %subDescr = %newDescr;
+			    $self->_prepareResultSet_new
+			      ($self->{_query}, \@subRS, \%subDescr, 
+			       $position);
+			}
+			##########
+			$res{$st->getSubject->getURI} = 1;
+			push @newRS, \@row;
+		    }
+		}
+		$enum->close;
+	    }
+	    
+	    $found = $self->_getStmts($rs->[$i], $description, 
+				      undef, $element, undef);
+	    foreach my $enum (@{$found}) {
+		while (my $st = $enum->getNext) {
+		    next unless $self->_bindingCheck
+		      ($rs->[$i],$description,$element,$st->getPredicate);
+		    my @row = @{$rs->[$i]};
+		    unless ($res{$st->getPredicate->getURI}) {
+			if ($pushElement) {
+			    push @row, $st->getPredicate;
+			}
+			##########
+			if ($position) {
+			    my @subRS = [@row];
+			    my %subDescr = %newDescr;
+			    $self->_prepareResultSet_new
+			      ($self->{_query}, \@subRS, \%subDescr, 
+			       $position);
+			}
+			##########
+			$res{$st->getPredicate->getURI} = 1;
+			push @newRS, \@row;
+		    }
+		}
+		$enum->close;
+	    }
+	    
+	    
+	    $found = $self->_getStmts($rs->[$i], $description, 
+				      undef, undef, $element);
 	    foreach my $enum (@{$found}) {
 		while (my $st = $enum->getNext) {
 		    next unless $self->_bindingCheck
@@ -357,10 +517,18 @@ sub _singularResult {
 		    my @row = @{$rs->[$i]};
 		    if ($st->getObject->isLiteral) {
 			unless ($lit{$st->getObject->getValue}) {
-			    if ($element->{type} eq Q_VARIABLE ||
-				defined $element->{binding}) {
+			    if ($pushElement) {
 				push @row, $st->getObject;
 			    }
+			    ##########
+			    if ($position) {
+				my @subRS = [@row];
+				my %subDescr = %newDescr;
+				$self->_prepareResultSet_new
+				  ($self->{_query}, \@subRS, \%subDescr, 
+				   $position);
+			    }
+			    ##########
 			    $lit{$st->getObject->getValue} = 1;
 			    push @newRS, \@row;
 			}
@@ -370,6 +538,15 @@ sub _singularResult {
 				defined $element->{binding}) {
 				push @row, $st->getObject;
 			    }
+			    ##########
+			    if ($position) {
+				my @subRS = [@row];
+				my %subDescr = %newDescr;
+				$self->_prepareResultSet_new
+				  ($self->{_query}, \@subRS, \%subDescr, 
+				   $position);
+			    }
+			    ##########
 			    $res{$st->getObject->getURI} = 1;
 			    push @newRS, \@row;
 			}
@@ -377,17 +554,6 @@ sub _singularResult {
 		}
 		$enum->close;
 	    }
-	    
-	    my $lastIndex;
-	    if (defined $newRS[0]) {
-		$lastIndex = @{$newRS[0]} - 1;
-	    } else {
-		$lastIndex = 0;
-	    }
-	    $newDescr{$element->{name}} = $lastIndex
-	      if $element->{type} eq Q_VARIABLE;
-	    $newDescr{$element->{binding}} = $lastIndex
-	      if defined $element->{binding};
 	}
     }
     %$description = %newDescr;
@@ -487,13 +653,15 @@ sub _funcParams {
     my @vars;
     if (defined $subjects) {
 	foreach (@$subjects) {
-	    push @vars, $_ unless defined $descr->{$_->{name}};
+	    if ($_->{type} eq Q_VARIABLE) {
+		push @vars, $_->{name} unless defined $descr->{$_->{name}};
+	    }
 	}
     }
     $self->_findVars($prmNode, \@vars);
     foreach (@vars) {
-	$self->_singularResult($rs, $descr, [$_])
-	  unless defined $descr->{$_->{name}};
+	$self->_singularResult($rs, $descr, [{name=>$_, type=>Q_VARIABLE}])
+	  unless defined $descr->{$_};
     }
     
 }
@@ -546,22 +714,78 @@ sub _joinResults {
     return ($joined, $joinedDescr);
 }
 
+sub _analyzeCondition {
+    my ($self, $condition) = @_;
+    #returns list of conjunctions that apply independently plus which 
+    #variables are in them. Variables are sorted by name.
+    #The form is: ({node=>$queryNode, vars=>[name1,name2,...]},...)
+    
+    my @retVal;
+    return @retVal unless $condition;
+
+    my $isConjunction = 0;
+    if (exists $condition->{+Q_CONNECTION}) {
+	$isConjunction = 1;
+	foreach (@{$condition->{+Q_CONNECTION}}) {
+	    $isConjunction = 0 if /^or$/i;
+	}
+	
+    } 
+    if ($isConjunction) {
+	foreach (@{$condition->{+Q_CONDITION}}) {
+	    push @retVal, $self->_analyzeCondition($_);
+	}
+    } elsif (exists $condition->{+Q_CONDITION} &&
+	    !exists $condition->{+Q_CONNECTION}) {
+	#a single condition, step into it
+	push @retVal, $self->_analyzeCondition($condition->{+Q_CONDITION}[0]);
+    } else {
+	#a match or disjunction
+	my @vars;
+	croak "condition not defined in analyzeCondition\n" unless defined $condition;
+	$self->_findVars($condition , \@vars);
+	push @retVal,{node=>$condition, vars=>\@vars};
+    }
+    return @retVal;
+}
+
+sub _checkConditions {
+    my ($self, $rs, $descr, $condSet) = @_;
+    #tries to apply some sub-conditions
+    #condSet is got from _analyzeCondition
+
+    my @newCondSet;
+    foreach my $cond (@$condSet) {
+	my $apply = 1;
+	foreach (@{$cond->{vars}}) {
+	    $apply = 0 unless $descr->{$_};
+	    last unless $apply;
+	} 
+	if ($apply) {
+	    $self->_applyConditions($rs, $descr, $cond->{node}) if $apply;
+	} else {
+	    push @newCondSet, $cond;
+	}
+
+    }
+    #throw away applied conditions
+    @$condSet = @newCondSet;
+}
+
 ############################################################
 # Result formatting
     
 sub _formatResult {
     my ($self, $rs, $descr, $query) = @_;
-    my $newResult = [];
-    my @varlist;
-    #just extract all variables for now
+
     foreach my $rsRow (@$rs) {
 	my $rows;
 	$rows = $self->_evalRow($rsRow, $descr,$query->
 				{+Q_RESULTSET}->[0]->{+Q_ELEMENTPATH});
-	push @$newResult, @$rows;
+	foreach my $row (@$rows) {
+	    &{$self->getOptions->{Row}}(@$row);
+	}
     }
-    @$rs = @$newResult;
-    return $rs
 }
 
 sub _evalRow {
@@ -588,9 +812,9 @@ sub _evalRow {
 ############################################################
 # Narrowing result according to conditions
 sub _applyConditions {
-    my ($self, $rs, $descr, $query) = @_;
+    my ($self, $rs, $descr, $condition) = @_;
     my @newResult;
-    my $condition = $query->{+Q_CONDITION}->[0];
+    #my $condition = $query->{+Q_CONDITION}->[0];
     return $rs unless $condition;
     foreach my $row (@$rs) {
 	if ($self->_evalCondition($row, $descr, $condition)) {
@@ -604,7 +828,7 @@ sub _applyConditions {
 sub _evalCondition {
     my ($self, $row, $descr, $condition) = @_;
     my $fit;
-    my @disjunctions;
+
     if (exists $condition->{+Q_MATCH}) {
 	$fit = $self->_evalMatch($row, $descr, $condition->{+Q_MATCH}->[0]);
     } else {
@@ -756,8 +980,8 @@ sub _evalPath {
 
 sub _getStmts {
     my ($self, $row, $descr, $s, $p, $o) = @_;
-    #Returns hash pointer with keys description, context and data. Description and row has it's usual content, description can bind variables to resulting data considering statement to be a (s,p,o) list appended to row. Description and row contain only new variables found while resolving _getStmts. Data is an array of enumerators.
-    #Example: {description=>{?x=>0},row=>[resource1], data=>[enum1,enum2,...]}
+    #Returns an array of enumerators.
+    #Example: [$enum1,$enum2,...]
     my @subjects;
     my @predicates;
     my @objects;
@@ -821,9 +1045,9 @@ sub _getStmts {
 		    $predicate ? $predicate->getLabel : 'undef',"\n\t", 
 		    $object ? $object->getLabel : 'undef',"\n"
 		      if $self->getOptions->{Debug};
-		    warn "Got ",$self->getOptions->{Model}->
-		      countStmts($subject, $predicate, $object)," statements\n"
-			if $self->getOptions->{Debug};
+#		    warn "Got ",$self->getOptions->{Model}->
+#		      countStmts($subject, $predicate, $object)," statements\n"
+#			if $self->getOptions->{Debug};
 		}
 	    }
 	}
@@ -841,7 +1065,6 @@ sub _evalVar {
 }
 
 sub _evalFun {
-    #TODO: Functions should be defined in a separate module
     my ($self, $row, $descr, $name, $subject, $elementPath) = @_;
     my $retVal= [];
     my $params;
@@ -947,27 +1170,43 @@ sub _operation {
 sub _findVars {
     # Return variable elements found in given subtree of query
     my ($self, $node, $vars) = @_;
+
     if (ref $node eq 'ARRAY') {
 	foreach (@$node) {
 	    $self->_findVars($_, $vars) if ref $_;
 	}
     } elsif (ref $node eq 'HASH') {
-	if ($node->{+Q_ELEMENT}) {
-	    for (my $i = 0; $i < @{$node->{+Q_ELEMENT}}; $i++) {
-		my $binding;
-		$binding = $_->{+Q_VARIABLE}->[$i]->{+Q_NAME}->[0]
-		  if $_->{+Q_VARIABLE};
-		my $element = $self->_extractElement($_->{+Q_ELEMENT}->[$i],
-						     $binding);
-		foreach (@$element) {
-		    push @$vars, $_ if $_->{type} eq Q_VARIABLE;
-		}
-	    }
+	if (exists $node->{+Q_VARIABLE} 
+	    && $node->{+Q_VARIABLE}[0]{+Q_NAME}[0]) {
+	    push @$vars, $node->{+Q_VARIABLE}[0]{+Q_NAME}[0]; 
 	} else {
 	    foreach (values %$node) {
 		$self->_findVars($_, $vars) if ref $_;
 	    }
 	}
+#  	if ($node->{+Q_ELEMENT}) {
+#  	    for (my $i = 0; $i < @{$node->{+Q_ELEMENT}}; $i++) {
+#  		my $binding;
+#  		$binding = $_->{+Q_VARIABLE}->[$i]->{+Q_NAME}->[0]
+#  		  if $_->{+Q_VARIABLE};
+#  		my $element = $self->_extractElement($_->{+Q_ELEMENT}->[$i],
+#  						     $binding);
+#  		foreach (@$element) {
+#  		    #add variables to result
+#  		    push @$vars, $_ 
+#  		      if $_->{type} eq Q_VARIABLE;
+#  		    #add variable binding, if found
+#  		    push @$vars, {name=>$_->{binding}, type=>Q_VARIABLE}
+#  		      if $_->{binding};
+#  		}
+#  	    }
+#  	} else {
+#  	    foreach (values %$node) {
+#  		$self->_findVars($_, $vars) if ref $_;
+#  	    }
+#  	}
+    } elsif (!defined $node) {
+	croak "Can't find vars in subtree - node is not defined\n";
     } else {
 	croak "Can't find vars in subtree - $node is not a tree node\n";
     }
@@ -1021,6 +1260,10 @@ RDF::Core::NodeFactory object, that produces resource and literal objects.
 =item * Namespaces
 
 A hash containing namespace prefixes as keys and URIs as values. See more in paragraph B<Names and URIs> in RDF::Core::Query, 
+
+=item * Row
+
+A code reference that is called every time a result row is found. The row elements are passed as parameters of the call. They can be undefined, RDF::Core::Resource or RDF::Core::Literal value.
 
 =back
 

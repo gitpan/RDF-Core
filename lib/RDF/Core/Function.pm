@@ -51,7 +51,6 @@ sub new {
     $self->{_functions} = {self=>\&self,
 			  subclass=>\&subclass,
 			  subproperty=>\&subproperty,
-			  superdir=>\&superdir,
 			 };
     bless $self, $pkg;
 }
@@ -126,24 +125,6 @@ sub subproperty {
     return $retVal
 }
 
-sub superdir {
-    my ($self, $subject) = @_;
-    my $retVal= [];
-    
-    croak "Expecting subject evaluating superdir()"
-      if !defined $subject;
-    my $pred;
-    $pred = $self->getOptions->{Factory}->
-      newResource('http://louda.gingerall.cz/ns#subdir');
-    
-    my $enum = $self->getOptions->{Data}->
-      getStmts(undef,$pred, $subject);
-    while (my $st = $enum->getNext) {
-	push @$retVal, $st->getSubject;
-    }
-    $enum->close;
-    return $retVal
-}
 
 
 
