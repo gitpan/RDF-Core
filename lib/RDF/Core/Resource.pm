@@ -53,14 +53,14 @@ sub new {
     if (@_ gt 1) {
 	#more then one parameters is interpreted as ($namespace,$localValue) pair
 	($namespace,$localValue) = @_;
-	carp "Resource's namespace must be defined"
+	croak "Resource's namespace must be defined"
 	  unless defined $namespace;
 	$localValue = ''
 	  unless defined $localValue;
     } else {
 	#one parameter is URI
 	my ($URI) = @_;
-	carp "Resource's URI must be defined"
+	croak "Resource's URI must be defined"
 	  unless defined $URI;
 	$self->_resolveURI($URI,\$namespace,\$localValue);
     }

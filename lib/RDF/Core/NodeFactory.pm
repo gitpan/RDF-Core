@@ -48,7 +48,6 @@ sub new {
     if (@_ > 0) {
 	$self->{_options} = \%options;
     }
-    $self->{_options}->{GenURI} ||= 'uri:';
     $self->{_options}->{BaseURI} ||= 'uri:';
     bless $self, $pkg;
 }
@@ -67,30 +66,32 @@ sub newResource {
     my $self = shift;
     my $resource;
     if (@_ gt 1) {
-	#more then one parameters is interpreted as ($namespace,$localValue) pair, 
-	#unless both of them are undef
+	#more then one parameters is interpreted as ($namespace,$localValue) 
+	#pair, unless both of them are undef
 	my ($namespace,$localValue) = @_;
+
 	return $self->newResource
 	  if !defined $namespace && !defined $localValue;
+
 	if (!defined $namespace) {
-	    carp "Resource's namespace must be defined"
+	    croak "Resource's namespace must be defined"
 	}
 	$localValue = ''
 	  unless defined $localValue;
 	my $absoluteURI = new_abs URI($namespace, $self->getOptions->{BaseURI});
 	$resource = new RDF::Core::Resource($absoluteURI->as_string, $localValue);
     } else {
-	#one parameter is URI
+	#one parameter is URI or bNode label
 	my ($URI) = @_;
 	if (defined $URI) {
-	    if (defined $self->getOptions->{BaseURI}) {
+	    if ($URI !~ /^_:/ && defined $self->getOptions->{BaseURI}) {
 		my $absoluteURI = new_abs URI($URI, $self->getOptions->{BaseURI});
 		$resource = new RDF::Core::Resource($absoluteURI->as_string);
 	    } else {
 		$resource = new RDF::Core::Resource($URI);
 	    }
 	} else {
-	    #no parameter or parameter undef - generate URI
+	    #no parameter or parameter undef - generate bNode label
 	    $resource = new RDF::Core::Resource($self->_generateURI);
 	}
     }
@@ -98,27 +99,25 @@ sub newResource {
 }
 sub _generateURI {
     my $self = shift;
-    $self->getOptions->{GenPrefix} = 'ID'
+    $self->getOptions->{GenPrefix} = '_:a'
       unless defined $self->getOptions->{GenPrefix};
     $self->getOptions->{GenCounter} = 0
       unless defined $self->getOptions->{GenCounter};
-    carp "Generator URI must be defined to generate URI"
-      unless defined (my $GenURI = $self->getOptions->{GenURI});
-    my $absoluteURI = new_abs URI($self->getOptions->{GenPrefix}.$self->getOptions->{_GenCounter}++,$GenURI );
-    return $absoluteURI->as_string;
+    my $bNode = $self->getOptions->{GenPrefix}.
+      $self->getOptions->{_GenCounter}++;
+    return $bNode
 }
 1;
 __END__
 
 =head1 NAME
 
-RDF::Core::NodeFactory - produces literals and resources, generates URI for anonymous resources
+RDF::Core::NodeFactory - produces literals and resources, generates labels for anonymous resources
 
 =head1 SYNOPSIS
 
   use RDF::Core::NodeFactory;
-  my $factory = new RDF::Core::NodeFactory(BaseURI=>'http://www.foo.org/',
-                                            GenURI=>'uri://GEN');
+  my $factory = new RDF::Core::NodeFactory(BaseURI=>'http://www.foo.org/');
   my $resource = $factory->newResource('http://www.foo.org/pages');
 
   #get the same uri:
@@ -145,13 +144,9 @@ Available options are:
 
 When NodeFactory generates a resource from relative URI, BaseURI is used to obtain absolute URI. BaseURI must be absolute. Default value is 'uri:'.
 
-=item * GenURI
-
-When NodeFactory generates a resource from none URI, GenURI is combined with GenPrefix and GenCounter to obtain absolute URI. GenURI must be absolute, too, default value is 'uri:' again.
-
 =item * GenPrefix, GenCounter
 
-Is used with GenURI to generate URI. Default values are ID for GenPrefix and 0 for GenCounter.
+Is used to generate bNode label (an anonymous resource). Default values are '_:a' for GenPrefix and 0 for GenCounter. Resulting label is concatenation of GenPrefix and GenCounter.
 
 =back
 

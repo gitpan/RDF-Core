@@ -67,7 +67,11 @@ sub getObject {
 sub getLabel {
     my $self = shift;
     my $rval;
-    $rval .= '<' . $self->getSubject()->getURI() . '> ';
+    my $subjectLabel = $self->getSubject()->getURI();
+    unless ($subjectLabel =~ /^_:/) {
+	$subjectLabel = '<' .$subjectLabel.'> ';
+    }
+    $rval = $subjectLabel;
     $rval .= '<' . $self->getPredicate()->getURI() . '> ';
     if ($self->getObject()->isLiteral()) {
 	my $literal = $self->getObject()->getValue();
@@ -78,7 +82,11 @@ sub getLabel {
 	$literal =~ s/"/\\"/g;
 	$rval = $rval . '"' . $literal . '"';
     } else {	
-	$rval = $rval . '<' . $self->getObject()->getURI() . '>'
+	my $objectLabel = $self->getObject()->getURI();
+	unless ($objectLabel =~ /^_:/) {
+	    $objectLabel = '<' .$objectLabel.'> ';
+	}
+	$rval = $rval . $objectLabel;
     }
     ;
     $rval .= "." ;
@@ -129,7 +137,7 @@ Variables $subject and $predicate are resources, $object can be resource or lite
 
 =item * getLabel
 
-print a content of statement formated as {[subject URI],[predicate URI],[object URI or value]}
+returns a content of statement in n-triple format.
 
 =item * clone
 

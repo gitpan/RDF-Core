@@ -53,8 +53,10 @@ sub new {
     $self->{_options}->{Output} = \*STDOUT
       unless defined $self->{_options}->{Output};
     $self->{_options}->{BaseURI};
-    $self->{_options}->{InlineURI};
-    $self->{_options}->{InlinePrefix} ||= 'anonymous';
+    $self->{_options}->{InlineURI} = '_:'
+      unless defined  $self->{_options}->{InlineURI};
+    $self->{_options}->{InlinePrefix} ||= '_:a'
+      unless defined $self->{_options}->{InlinePrefix};
     $self->{_descriptions} = undef;
     $self->{_namespaces} = undef;
     $self->{_recursionlvl} = 0;
@@ -177,9 +179,9 @@ sub _descriptionOpen {
     my $idAboutAttr;
     #Anonymous subject can be serialized as anonymous if it's an object of one or zero statements
     #and the referencing statement's subject has already been opened
-    my $inlineURI = $self->getOptions->{InlineURI};
+    my $InlineURI = $self->getOptions->{InlineURI};
     my $baseURI = $self->getOptions->{BaseURI};
-    if ($inlineURI && $subjectID =~ /^$inlineURI/i) {
+    if ($InlineURI && $subjectID =~ /^$InlineURI/i) {
 	if ($self->{_recursionlvl} || !$self->existsStatement(undef,undef,$description->[0])) {
 	    $idAboutAttr = ''
 	} else {
@@ -297,15 +299,14 @@ RDF::Core::Serializer - produce XML code for RDF model
                  getNamespaces => \&getNamespacesHandler,
                  getStatements => \&getStatementsHandler,
                  existsStatement => \&existsStatementHandler,
-                 baseURI => 'http://www.foo.com/',
-                 inlineURI => 'http://www.bar.org/rdf/generated/',
+                 BaseURI => 'http://www.foo.com/',
                 );
   my $serializer = new RDF::Core::Serializer(%options);
   $serializer->serialize;
 
 =head1 DESCRIPTION
 
-Serializer takes RDF data provided by handlers and generates a XML document. Besides the trivial job of generating one description for one statement the serializer attempts to group statements with common subject into one description and makes referenced descriptions nested into referencing ones. Using baseURI and inlineURI options helps to keep relative and anonymous resources instead of making them absolute and persistent.
+Serializer takes RDF data provided by handlers and generates a XML document. Besides the trivial job of generating one description for one statement the serializer attempts to group statements with common subject into one description and makes referenced descriptions nested into referencing ones. Using baseURI and InlineURI options helps to keep relative and anonymous resources instead of making them absolute and persistent.
 
 =head2 Interface
 
@@ -344,11 +345,11 @@ A base URI of a document that is created. If a subject of a statement matches th
 
 =item * InlineURI
 
-If a subject matches an inlineURI option, serializer attempts to generate an anonymous description. (The description has not about neither ID attribute.) If it's not possible (imagine an anonymous resource which points to itself, or some circularly dependent anonymous resources etc.), an ID attribute is generated using inlinePrefix and a counter.
+If a subject matches an InlineURI option, serializer attempts to generate an anonymous description. (The description has not about neither ID attribute.) If it's not possible (imagine an anonymous resource which points to itself, or some circularly dependent anonymous resources etc.), an ID attribute is generated using InlinePrefix and a counter. The default value is '_:'.
 
 =item * InlinePrefix
 
-If an anonymous description is to be generated and need is to give it ID attribute (see inlineURI), the attribute will be inlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is 'anonymous'.
+If an anonymous description is to be generated and need is to give it ID attribute (see InlineURI), the attribute will be InlinePrefix concatenated with unique number. Unique is ment in the scope of the document. Default prefix is '_:a'.
 
 =back
 

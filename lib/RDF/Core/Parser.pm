@@ -936,8 +936,8 @@ sub _clearFlag {
 
 sub _getImplicitURI {
     my $self = shift;
-    my $ret = $self->{inlineuri} || "urn:subject";
-    $ret .= "#" . ++ $self->{unique};
+    my $ret = $self->{inlineuri} || "_:a";
+    $ret .=  ++ $self->{unique};
 }
 
 1;
