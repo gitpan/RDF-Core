@@ -34,6 +34,7 @@
 package RDF::Core::Parser;
 
 use strict;
+use warnings;
 
 require URI;
 require XML::Parser;
@@ -484,7 +485,8 @@ sub _assertCollectionItem {
 		  object_uri => RDF_LIST,
 		 );
     $self->_doAssert({},\%params);
-    my %params = (
+    
+    %params = (
 		  subject_uri => $colItem,
 		  predicate_ns => RDF_NS,
 		  predicate_name => "first",
@@ -505,7 +507,7 @@ sub _getLIURI {
 
 sub __trim {
     my $val = shift;
-    $val =~ s/^\s*$//sg;
+    $val =~ s/^\s*$//sg if (defined($val));
     return $val;
 }
 
@@ -670,12 +672,14 @@ sub _analyzePath {
 	if ($ruri || %$attrs) {
 	    $ct = NODE_PROPERTY_4;
 	    $ce->{resource} ||= $self->_getImplicitURI($ce->{nodeid});
-	} elsif ($ce->{parsetype} eq PARSE_COLLECTION) {
-	    $ct = NODE_PROPERTY_5;
-	} elsif ($ce->{parsetype} eq PARSE_RESOURCE) {
-	    $ct = NODE_PROPERTY_3;
-	} elsif ($ce->{parsetype} eq PARSE_LITERAL) {
-	    $ct = NODE_PROPERTY_2;
+	} elsif ($ce->{parsetype}) {
+		if ($ce->{parsetype} eq PARSE_COLLECTION) {
+			$ct = NODE_PROPERTY_5;
+		} elsif ($ce->{parsetype} eq PARSE_RESOURCE) {
+			$ct = NODE_PROPERTY_3;
+		} elsif ($ce->{parsetype} eq PARSE_LITERAL) {
+			$ct = NODE_PROPERTY_2;
+		}
 	} else {
 	    $ct = NODE_PROPERTY_1;
 	}
@@ -856,7 +860,7 @@ sub end {
 	#update parent type (usefull for containers)
 	if ($element->{qname} eq RDF_TYPE) {
 	    my $ctype = $RDF_TYPES{$self->_getElementResource($element)};
-	    if ($ctype & RDFT_CONTAINER) {
+	    if ($ctype and $ctype & RDFT_CONTAINER) {
 		$subject->{containertype} = $ctype;
 	    }
 	}

@@ -84,15 +84,11 @@ Serializer writes to STDOUT with default settings.
 <p></p>
 <li><strong><a name="item_baseuri">BaseURI</a></strong><br />
 </li>
-A base URI of a document that is created. If a subject of a statement matches the URI, about attribute with relative URI is generated. No ID attributes are produced until corresponding RDF issue is closed. (See rdfms-difference-between-ID-and-about at <a href="http://www.w3.org/2000/03/rdf-tracking/)">http://www.w3.org/2000/03/rdf-tracking/)</a>
-<p></p>
-<li><strong><a name="item_inlineuri">InlineURI</a></strong><br />
-</li>
-Deprecated.
+A base URI of a document that is created. If a subject of a statement matches the URI, rdf:about attribute with relative URI is generated.
 <p></p>
 <li><strong><a name="item_inlineprefix">InlinePrefix</a></strong><br />
 </li>
-If an anonymous description is to be generated and need is to give it ID attribute, the attribute will be InlinePrefix concatenated with unique number. Unique is meant in the scope of the document. Default prefix is 'genid'. This is wrong practice and will be replaced by rdf:nodeID usage in next versions. Warning is generated when this occurs.
+When rdf:nodeID attribute is assigned to an anonymous resource, it's generated as InlinePrefix concatenated with unique number. Unique is meant in the scope of the document. Default prefix is 'genid'.
 <p></p></ul>
 <li><strong><a name="item_serialize">serialize</a></strong><br />
 </li>

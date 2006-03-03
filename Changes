@@ -1,6 +1,17 @@
 #====================================================================#
 #  The release file for RDF-Core                                     #
 #====================================================================#
+
+Version 0.40
+March 2, 2006
+----------------
+	- some code cleanup (thanks to Gregory Williams)
+	- a new method equals() added to literal object, datatype 
+	  and laguage tag are taken into account (bug 2306)
+	- escaping characters in rdf:about attribute fixed (bug 1630, 
+	  thanks to Norman Walsh)
+	- rdf:nodeID is produced by serializer when necessary, instead
+	  of incorrect deanonymizing resource
 Version 0.31
 August 11, 2004
 ----------------

@@ -62,6 +62,17 @@ sub getLang {
 sub getDatatype {
     return $_[0]->{_datatype};
 }
+sub equals {
+    my ($self, $node) = @_;
+    $node = new RDF::Core::Literal($node) 
+      unless ref $node && $node->isa("RDF::Core::Node");
+    return $node->isLiteral 
+      && ($node->getValue eq $self->getValue)
+	&& (!$node->getLang && !$self->getLang 
+	    || uc($node->getLang) eq uc($self->getLang))
+	  && (!$node->getDatatype && !$self->getDatatype 
+	      || $node->getDatatype eq $self->getDatatype);
+}
 #Override inherited method
 sub getLabel {
     return $_[0]->getValue;
@@ -103,6 +114,10 @@ Is inherited from RDF::Core::Node, you can specify it's language and datatype UR
 =item * getLang()
 
 =item * getDatatype()
+
+=item * equals($other)
+
+See L<http://www.w3.org/TR/rdf-concepts/#section-Literal-Equality> for details on literal equality.
 
 =back
 

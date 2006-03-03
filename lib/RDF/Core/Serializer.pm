@@ -49,7 +49,7 @@ sub new {
     $self->{_options} = \%options;
     $self->{_options}->{Output} = \*STDOUT
       unless defined $self->{_options}->{Output};
-    $self->{_options}->{BaseURI};
+    # $self->{_options}->{BaseURI};
     $self->{_options}->{InlinePrefix} ||= 'genid'
       unless defined $self->{_options}->{InlinePrefix};
     $self->{_descriptions} = undef;
@@ -183,15 +183,14 @@ sub _descriptionOpen {
 	} else {
 	    #deanonymize resource
 	    my $idNew = $self->getOptions->{InlinePrefix}.$self->{idAttr}++;
-	    $idAboutAttr = " ID=\"$idNew\"";
-	    carp "Giving attribute $idAboutAttr to blank node $subjectID.";
+	    $idAboutAttr = " rdf:nodeID=\"$idNew\"";
+	    #carp "Giving attribute $idAboutAttr to blank node $subjectID.";
 	    #store its ID to reference it in other statements
-	    $self->{_anonym}->{$subjectID} = '#'.$idNew;
+	    $self->{_anonym}->{$subjectID} = $idNew;
 	}
     } elsif ($baseURI && $subjectID =~ /^$baseURI/i) {
 	#relative URI - choose whether idAttr or aboutAttr should be produced
 	#suggestion - produce aboutAttr every time
-	#TODO-synchronize this with isuue rdfms-difference-between-ID-and-about
 	my $id = $';
 #	$id =~ s/^#//
 #	  if $baseURI !~ /#$/;
@@ -200,6 +199,7 @@ sub _descriptionOpen {
 	#absolute URI - produce aboutAttr
 	$idAboutAttr = " rdf:about=\"$subjectID\"";
     }
+    $idAboutAttr = $self->_escapeXML($idAboutAttr);
     $self->_print ("<rdf:Description$idAboutAttr>\n");
     $self->{_recursionlvl}++;
     $description->[1] = 1;
@@ -227,9 +227,12 @@ sub _predicateOpen {
 	    $propertyElt="<$propName>\n";
 	} else {
 	    my $objectURI = $statement->getObject->getURI;
-	    $objectURI = $self->{_anonym}->{$objectURI}
-	      if exists  $self->{_anonym}->{$objectURI};
-	    $propertyElt="<$propName rdf:resource=\"".$self->_cutBaseURI($objectURI)."\"/>\n";
+	    my $resAttr = "rdf:resource";
+	    if ($self->{_anonym}->{$objectURI}) {
+		$objectURI = $self->{_anonym}->{$objectURI};
+		$resAttr = "rdf:nodeID";
+	    }
+	    $propertyElt="<$propName $resAttr=\"".$self->_cutBaseURI($objectURI)."\"/>\n";
 	}
     }
     $self->_print ($propertyElt);
@@ -258,9 +261,7 @@ sub _descriptionData {
 	$self->_predicateOpen($statement,0);
 	if ($statement->getObject->isLiteral) {
 	    my $literal = $statement->getObject->getValue;
-	    $literal =~ s/\&/\&amp;/g;
-	    $literal =~ s/\</\&lt;/g;
-	    $self->_print($literal);
+	    $self->_print($self->_escapeXML($literal));
 	}
 	$self->_predicateClose($statement,0);
 
@@ -284,6 +285,13 @@ sub _cutBaseURI {
 	$uriRef =~ s/^$baseURI//i;
     }
     return $uriRef;
+}
+
+sub _escapeXML {
+    my ($self, $string) = @_;
+    $string =~ s/\&/\&amp;/g;
+    $string =~ s/\</\&lt;/g;
+    return $string;
 }
 
 1;
@@ -344,15 +352,12 @@ Serializer writes to STDOUT with default settings.
 
 =item * BaseURI
 
-A base URI of a document that is created. If a subject of a statement matches the URI, about attribute with relative URI is generated. No ID attributes are produced until corresponding RDF issue is closed. (See rdfms-difference-between-ID-and-about at http://www.w3.org/2000/03/rdf-tracking/)
+A base URI of a document that is created. If a subject of a statement matches the URI, rdf:about attribute with relative URI is generated. 
 
-=item * InlineURI
-
-Deprecated.
 
 =item * InlinePrefix
 
-If an anonymous description is to be generated and need is to give it ID attribute, the attribute will be InlinePrefix concatenated with unique number. Unique is meant in the scope of the document. Default prefix is 'genid'. This is wrong practice and will be replaced by rdf:nodeID usage in next versions. Warning is generated when this occurs.
+When rdf:nodeID attribute is assigned to an anonymous resource, it's generated as InlinePrefix concatenated with unique number. Unique is meant in the scope of the document. Default prefix is 'genid'. 
 
 =back
 

@@ -91,8 +91,8 @@ sub clone {
 sub equals {
     my ($self, $other) = @_;
     $other = new RDF::Core::Resource($other) 
-      unless ref $other && $other->isa("RDF::Core::Resource");
-    return $self->getURI eq $other->getURI;
+      unless ref $other && $other->isa("RDF::Core::Node");
+    return !$self->isLiteral && $self->getURI eq $other->getURI;
 }
 
 sub _resolveURI {
