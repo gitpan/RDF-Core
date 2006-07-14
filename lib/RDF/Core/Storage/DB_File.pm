@@ -41,6 +41,8 @@ our @ISA = qw(RDF::Core::Storage);
 use Carp;
 use DB_File;
 require RDF::Core::Storage;
+require RDF::Core::Literal;
+require RDF::Core::Resource;
 require RDF::Core::Statement;
 require RDF::Core::Enumerator::Memory;
 require RDF::Core::Enumerator::DB_File;
@@ -170,30 +172,30 @@ sub addStmt {
     }
     #Add object to resources or literals
     my $objectID;
-      if ($stmt->getObject->isLiteral) {
-	  if (!defined ($objectID = 
-			$self->{_idxLit}->{$stmt->getObject->getValue})) {
-	      $objectID = $self->_getCounter('literal');
-	      $self->{_data}->{+LITERAL.$objectID}=$stmt->getObject->getValue;
-	      $self->{_data}->{+LIT_LANG.$objectID} = 
-		$stmt->getObject->getLang
-		  if $stmt->getObject->getLang;
-	      $self->{_data}->{+LIT_TYPE.$objectID}=
-		$stmt->getObject->getDatatype
-		  if $stmt->getObject->getDatatype;
-	      $self->{_idxLit}->{$stmt->getObject->getValue} = $objectID;
-	  }
-      } else {
-	  if (!defined ($objectID = 
-			$self->{_idxRes}->{$stmt->getObject->getURI})) {
-	      $objectID = $self->_getCounter('resource');
-	      $self->{_data}->{+NAMESPACE.$objectID} = 
-		$stmt->getObject->getNamespace;
-	      $self->{_data}->{+VALUE.$objectID} = 
-		$stmt->getObject->getLocalValue;
-	      $self->{_idxRes}->{$stmt->getObject->getURI} = $objectID;
-	  }
-      }
+    if ($stmt->getObject->isLiteral) {
+    	my $value	= $stmt->getObject->getValue;
+    	my $lang	= $stmt->getObject->getLang;
+    	my $dt		= $stmt->getObject->getDatatype;
+    	my $idxLitKey	= sprintf("L%s<%s>%s", $value, $lang, $dt);
+	if (!defined ($objectID = $self->{_idxLit}->{ $idxLitKey })) {
+	    $objectID = $self->_getCounter('literal');
+	    $self->{_data}->{+LITERAL.$objectID}=$stmt->getObject->getValue;
+	    $self->{_data}->{+LIT_LANG.$objectID} = 
+	      $stmt->getObject->getLang
+		if $stmt->getObject->getLang;
+	    $self->{_data}->{+LIT_TYPE.$objectID}=
+	      $stmt->getObject->getDatatype
+		if $stmt->getObject->getDatatype;
+	    $self->{_idxLit}->{ $idxLitKey } = $objectID;
+	}
+    } else {
+	if (!defined ($objectID = $self->{_idxRes}->{$stmt->getObject->getURI})) {
+	    $objectID = $self->_getCounter('resource');
+	    $self->{_data}->{+NAMESPACE.$objectID} =  $stmt->getObject->getNamespace;
+	    $self->{_data}->{+VALUE.$objectID} = $stmt->getObject->getLocalValue;
+	    $self->{_idxRes}->{$stmt->getObject->getURI} = $objectID;
+	}
+    }
     #Add statement and refresh indexes
     my $stmtID = $self->_getCounter('statement');
     $self->{_data}->{+SUBJECT.$stmtID} = $subjectID;
@@ -217,6 +219,7 @@ sub addStmt {
     die if $die;
     return 1
 }
+
 sub removeStmt {
     my ($self, $stmt) = @_;
     return 0 unless
@@ -262,7 +265,11 @@ sub removeStmt {
 	    delete $self->{_data}->{+LITERAL.$objectID};
 	    delete $self->{_data}->{+LIT_TYPE.$objectID};
 	    delete $self->{_data}->{+LIT_LANG.$objectID};
-	    delete $self->{_idxLit}->{$stmt->getObject->getValue};
+	    my $value	= $stmt->getObject->getValue;
+	    my $lang	= $stmt->getObject->getLang;
+	    my $dt		= $stmt->getObject->getDatatype;
+	    my $idxLitKey	= sprintf("L%s<%s>%s", $value, $lang, $dt);
+	    delete $self->{_idxLit}->{ $idxLitKey };
 	}
     } else {
 	$objectID = $self->{_data}->{+OBJECT_RES.$key};
@@ -286,6 +293,7 @@ sub removeStmt {
     die if $die;
     return 1;
 }
+
 sub existsStmt {
     #print "Entering existsStmt\n";
     my ($self, $subject, $predicate, $object) = @_;
@@ -319,17 +327,18 @@ sub existsStmt {
     #print "Returning $retval\n";
     return $retval;
 }
+
 sub getStmts {
     my ($self, $subject, $predicate, $object) = @_;
     my $enumerator;
     my $indexArray = $self->_getIndexArray($subject, $predicate, $object);
     my $processInMemory = !$self->{_options}->{MemLimit} ||
       @$indexArray < $self->{_options}->{MemLimit} || 
-      (defined $subject && defined $predicate && defined $object);
+	(defined $subject && defined $predicate && defined $object);
     my @data;			#for gathering data in memory
     my $resultArray;		#index for DB_File enumerator
     if (!$processInMemory &&
-    #if DB_File enumerator is to be returned and at least two elements of triple are undef, you already have what you need
+	#if DB_File enumerator is to be returned and at least two elements of triple are undef, you already have what you need
 	(!defined $subject && !defined $predicate ||
 	 !defined $subject && !defined $object ||
 	 !defined $predicate && !defined $object)) {
@@ -390,7 +399,7 @@ sub countStmts {
     my ($self, $subject, $predicate, $object) = @_;
     my $count = 0;
 
-    return $self->{_data}->{+ALL_KEY}
+    return ($self->{_data}->{+ALL_KEY} || 0)
       if !defined $subject && !defined $predicate && !defined $object;
     foreach (@{$self->_getIndexArray($subject, $predicate, $object)}) {
 	my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, $index);
@@ -413,16 +422,7 @@ sub countStmts {
 	if ((!defined $subject || $subNS.$subLV eq $subject->getURI) && 
 	    (!defined $predicate || $predNS.$predLV eq $predicate->getURI) && 
 	    (!defined $object || $objValue eq $object->getLabel)
-	   ) {  #found statement
-# 	    my $newsub = new RDF::Core::Resource($subNS,$subLV);
-# 	    my $newpred = new RDF::Core::Resource($predNS.$predLV);
-# 	    my $newobj;
-# 	    if ($isLiteral) {
-# 		$newobj = new RDF::Core::Literal($objValue);
-# 	    } else {
-# 		$newobj = new RDF::Core::Resource($objNS,$objLV)
-# 	    }
-# 	    my $statement = new RDF::Core::Statement($newsub,$newpred,$newobj);
+	   ) {			#found statement
 	    $count++;
 	}
     }
@@ -485,7 +485,11 @@ sub _getIndexArray {
     if (defined $object) {
 	my $objectID;
 	if ($object->isLiteral) {
-	    $objectID = $self->{_idxLit}->{$object->getValue};
+	    my $value	= $object->getValue;
+	    my $lang	= $object->getLang;
+	    my $dt		= $object->getDatatype;
+	    my $idxLitKey	= sprintf("L%s<%s>%s", $value, $lang, $dt);
+	    $objectID = $self->{_idxLit}->{ $idxLitKey };
 	    $idxLength = $self->{_data}->{+OBJECTLIT_SIZE.$objectID} || 0;
 	    $keyBest = OBJECTLIT_IDX.$objectID;
 	} else {
@@ -493,7 +497,7 @@ sub _getIndexArray {
 	    $idxLength = $self->{_data}->{+OBJECTRES_SIZE.$objectID} || 0;
 	    $keyBest = OBJECTRES_IDX.$objectID;
 	}
-	    $found = 1;
+	$found = 1;
     }
     if ($found) {
 	@indexArray = $idxStmt->get_dup($keyBest);

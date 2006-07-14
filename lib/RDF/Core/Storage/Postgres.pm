@@ -183,8 +183,20 @@ sub _buildSelect {
     }
     if ($obj) {
 	if ($obj->isLiteral) {
-	    $where .= "\n and s.object_lit = ?";
+	    $where .= "\n and s.object_lit = ? ";
 	    push @bindings, $obj->getValue;
+	    if (defined $obj->getLang) {
+		$where .= "\n and s.object_lang = ? ";
+		push @bindings, $obj->getLang;
+	    } else {
+		$where .= "\n and s.object_lang is null ";
+	    }
+	    if (defined $obj->getDatatype) {
+		$where .= "\n and s.object_type = ? ";
+		push @bindings, $obj->getDatatype;
+	    } else {
+		$where .= "\n and s.object_type is null ";
+	    }
 	} else {
 	    $where .= "\n and r3.local_name = ? and n3.namespace = ? ";
 	    push @bindings, $obj->getLocalValue;
@@ -220,7 +232,7 @@ sub removeStmt {
     my $rval;
     my $isLiteral = $stmt->getObject()->isLiteral(); 
     my $proc = $isLiteral ? 
-      'select rdf_stmt_del(?,?,?,?,?,?)' : 
+      'select rdf_stmt_del(?,?,?,?,?,?,?,?)' : 
 	'select rdf_stmt_del(?,?,?,?,?,?,?)';
     my $sth = $self->_getDBHandle()->prepare($proc);
     my $i = 1;
@@ -231,6 +243,8 @@ sub removeStmt {
     $sth->bind_param($i++, $stmt->getPredicate()->getLocalValue());
     if ($isLiteral) {
 	$sth->bind_param($i++, $stmt->getObject()->getValue());
+	$sth->bind_param($i++, $stmt->getObject()->getLang());
+	$sth->bind_param($i++, $stmt->getObject()->getDatatype());
     } else {
 	$sth->bind_param($i++,$stmt->getObject()->getNamespace());
 	$sth->bind_param($i++,$stmt->getObject()->getLocalValue());

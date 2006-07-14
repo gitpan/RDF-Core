@@ -2,6 +2,15 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
+Version 0.50
+July 14, 2006
+----------------
+	- a major bug in storing language tags and datatypes for
+	  literals fixed (bug 3148, thanks to Pierluigi Miraglia and
+	  Gregory Williams), it affects all types of storages (Memory,
+	  DB_File, Postgres). The new version is NOT compatible with old
+	  storages, so you will have to serialize your data, create new
+	  storages and parse it back.
 Version 0.40
 March 2, 2006
 ----------------

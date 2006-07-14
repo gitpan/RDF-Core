@@ -1,3 +1,11 @@
+                             ***CAUTION***
+
+If you are installing over older version (below 0.50), you will need
+to re-create your storages (both DB_File and Postgres).
+
+                             *************
+
+
 This is the README file for RDF::Core, a package for handling RDF data.
 
 1. What is it RDF::Core?

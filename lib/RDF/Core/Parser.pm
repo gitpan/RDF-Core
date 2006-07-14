@@ -1053,7 +1053,7 @@ RDF::Core::Parser - RDF Parser
 
 =head1 DESCRIPTION
 
-A module for parsing XML documents containing RDF data. It's based on XML::Parser. Parser goes through XML and calls what is referenced in Assert option for each statement found.
+A module for parsing XML documents containing RDF data. It's based on XML::Parser. Parser goes through XML and calls what is referenced in Assert option for each statement found. CAUTION: If you parse more documents into one model, you need to set distinct BNodePrefix (see below) for each document. This way you avoid mixing anonymous resources from distinct documents together.
 
 =head1 SYNOPSIS
 

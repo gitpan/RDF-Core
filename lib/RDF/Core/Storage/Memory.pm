@@ -132,7 +132,11 @@ sub existsStmt {
     foreach (@$indexArray) {
 	if ((!defined $subject || $self->{_data}->{$_}->getSubject->getURI eq $subject->getURI) && 
 	   (!defined $predicate || $self->{_data}->{$_}->getPredicate->getURI eq $predicate->getURI) && 
-	   (!defined $object || $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel)) {
+	   (!defined $object || (
+			$self->{_data}->{$_}->getObject->isLiteral
+				? ($object->equals($self->{_data}->{$_}->getObject))
+				: $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel
+		))) {
 	    return 1; #found statement
 	}
     }
@@ -146,7 +150,11 @@ sub getStmts {
     foreach (@indexArray) {
 	if ((!defined $subject || $self->{_data}->{$_}->getSubject->getURI eq $subject->getURI) && 
 	    (!defined $predicate || $self->{_data}->{$_}->getPredicate->getURI eq $predicate->getURI) && 
-	    (!defined $object || $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel)) {
+	    (!defined $object || (
+			$self->{_data}->{$_}->getObject->isLiteral
+				? ($object->equals($self->{_data}->{$_}->getObject))
+				: $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel
+		))) {
 	    push(@data,$self->{_data}->{$_});
 	}
     }
@@ -163,7 +171,11 @@ sub countStmts {
     foreach (@indexArray) {
 	if ((!defined $subject || $self->{_data}->{$_}->getSubject->getURI eq $subject->getURI) && 
 	    (!defined $predicate || $self->{_data}->{$_}->getPredicate->getURI eq $predicate->getURI) && 
-	    (!defined $object || $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel)) {
+	    (!defined $object || (
+			$self->{_data}->{$_}->getObject->isLiteral
+				? ($object->equals($self->{_data}->{$_}->getObject))
+				: $self->{_data}->{$_}->getObject->getLabel eq $object->getLabel
+		))) {
 	    $count++;
 	}
     }
@@ -182,7 +194,9 @@ sub _getKey {
     foreach (@indexArray) {
  	if ($self->{_data}->{$_}->getSubject->getURI eq $stmt->getSubject->getURI && 
 	    $self->{_data}->{$_}->getPredicate->getURI eq $stmt->getPredicate->getURI && 
-	    $self->{_data}->{$_}->getObject->getLabel eq $stmt->getObject->getLabel) {
+	    ($self->{_data}->{$_}->getObject->isLiteral
+				? ($stmt->getObject->equals($self->{_data}->{$_}->getObject))
+				: $self->{_data}->{$_}->getObject->getLabel eq $stmt->getObject->getLabel)) {
  	    return $_;		#found statement
 	}
     }

@@ -117,7 +117,7 @@ sub _rdfClose {
 sub _descriptionNext {
     my $self = shift;
     my $retval = undef;
-    my %searched = undef;
+    my %searched;
     #first, look for subjects that are not objects of any statement
     foreach (values %{$self->getSubjects}) {
 	unless ($_->[1]) {	#search in not yet opened descriptions
