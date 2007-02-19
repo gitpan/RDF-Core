@@ -2,7 +2,8 @@ Changes
 MANIFEST
 README
 Makefile.PL
-test.pl
+t/10-storage.t
+t/20-parser.t
 upd-doc.sh
 dbmodel/pgsql/rdf-pgsql.sql
 lib/RDF/Core.pm

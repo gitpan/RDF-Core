@@ -2,6 +2,12 @@
 #  The release file for RDF-Core                                     #
 #====================================================================#
 
+Version 0.51
+February 19, 2007
+----------------
+	- Makefile reporting dependencies in CPAN-compatible way
+	- added basic test suite
+	- minor fixes
 Version 0.50
 July 14, 2006
 ----------------

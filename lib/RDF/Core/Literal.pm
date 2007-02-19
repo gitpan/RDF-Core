@@ -48,9 +48,11 @@ sub new {
     $pkg = ref $pkg || $pkg;
     my $self={};
 
-    $self->{_value}=$value;
-    $self->{_lang}=$lang;
-    $self->{_datatype}=$datatype;
+    $self->{_value} = defined $value ? $value : '';
+#    $self->{_lang} = $lang;
+#    $self->{_datatype} = $datatype;
+    $self->{_lang} = defined $lang ? $lang : '';
+    $self->{_datatype} = defined $datatype ? $datatype : '';
     bless $self,$pkg;
 }
 sub getValue {

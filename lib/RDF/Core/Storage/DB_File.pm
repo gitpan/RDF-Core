@@ -104,8 +104,6 @@ sub new {
     $self->{_steps}=0;
 
     $self->{_data} = {};
-    $self->{_data}->{+ALL_KEY} = 0;
-
     $self->{_idxStmt} = {};
     $self->{_idxRes} = {};
     $self->{_idxLit} = {};
@@ -136,6 +134,9 @@ sub new {
     tie %{$self->{_idxStmt}}, 'DB_File', $file, $self->{_options}->{Flags}, 
       $self->{_options}->{Mode}, $DB_BTREE 
 	or die "Couldn't tie ", $file || 'undef',": $!";
+    ################################
+    #init counter
+    $self->{_data}->{+ALL_KEY} = 0;
 
     bless $self, $pkg;
 }
@@ -399,7 +400,7 @@ sub countStmts {
     my ($self, $subject, $predicate, $object) = @_;
     my $count = 0;
 
-    return ($self->{_data}->{+ALL_KEY} || 0)
+    return ($self->{_data}->{+ALL_KEY})
       if !defined $subject && !defined $predicate && !defined $object;
     foreach (@{$self->_getIndexArray($subject, $predicate, $object)}) {
 	my ($subNS,$subLV,$predNS,$predLV, $objNS, $objLV, $objValue, $index);
@@ -464,19 +465,19 @@ sub _getIndexArray {
     my $idxStmt = tied %{$self->{_idxStmt}};
     my @indexArray;
     my $found = 0;
-    my $idxLength;
+    my $idxLength = 0;
     my $keyBest;
 
     if (defined $subject) {
-	my $subjectID = $self->{_idxRes}->{$subject->getURI};
+	my $subjectID = $self->{_idxRes}->{$subject->getURI} || '';
 	$found = 1;
 	$idxLength = $self->{_data}->{+SUBJECT_SIZE.$subjectID} || 0;
 	$keyBest = SUBJECT_IDX.$subjectID;
     }
     if (defined $predicate) {
-	my $predicateID = $self->{_idxRes}->{$predicate->getURI};
-	if (!$found || $idxLength gt 
-	    $self->{_data}->{+PREDICATE_SIZE.$predicateID} || 0) {
+	my $predicateID = $self->{_idxRes}->{$predicate->getURI} || '';
+	if (!$found || $idxLength > 
+	    ($self->{_data}->{+PREDICATE_SIZE.$predicateID} || 0)) {
 	    $found = 1;
 	    $idxLength = $self->{_data}->{+PREDICATE_SIZE.$predicateID} || 0;
 	    $keyBest = PREDICATE_IDX.$predicateID;
@@ -489,11 +490,11 @@ sub _getIndexArray {
 	    my $lang	= $object->getLang;
 	    my $dt		= $object->getDatatype;
 	    my $idxLitKey	= sprintf("L%s<%s>%s", $value, $lang, $dt);
-	    $objectID = $self->{_idxLit}->{ $idxLitKey };
+	    $objectID = $self->{_idxLit}->{ $idxLitKey } || '';
 	    $idxLength = $self->{_data}->{+OBJECTLIT_SIZE.$objectID} || 0;
 	    $keyBest = OBJECTLIT_IDX.$objectID;
 	} else {
-	    $objectID = $self->{_idxRes}->{$object->getURI};
+	    $objectID = $self->{_idxRes}->{$object->getURI} || '';
 	    $idxLength = $self->{_data}->{+OBJECTRES_SIZE.$objectID} || 0;
 	    $keyBest = OBJECTRES_IDX.$objectID;
 	}

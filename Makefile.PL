@@ -50,12 +50,12 @@ sub check_deps {
 
 sub report_deps {
     if ($missing_req[0]) {
-	print "\nSorry, RDF::Core can't be instaled. ";
+#	print "\nSorry, RDF::Core can't be instaled. ";
 	print "The following modules are required:\n\n";
 	foreach (@missing_req) {
 	    print "$_, version $required{$_} or later: $msg{$_}\n";
 	}
-	exit 1;
+	#exit 1;
     }
     
     if ($missing_opt[0]) {
@@ -75,8 +75,9 @@ report_deps;
 
 WriteMakefile(
 	      'PMLIBDIRS'    => [ 'lib' ],
-	      'NAME'		=> 'RDF::Core',
-	      'VERSION_FROM'	=> 'lib/RDF/Core.pm', # finds $VERSION
+	      'NAME'	     => 'RDF::Core',
+	      'VERSION_FROM' => 'lib/RDF/Core.pm', # finds $VERSION
+	      'PREREQ_PM'    => {%required, %optional}, 
 	      'dist' => {
 			 'COMPRESS' => 'gzip',
 			 'SUFFIX'   => 'gz',

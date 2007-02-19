@@ -39,6 +39,9 @@ require Exporter;
 use RDF::Core::Query qw(:syntax);
 use RDF::Core::Constants qw(:rdf);
 require RDF::Core::Function;
+require RDF::Core::Statement;
+require RDF::Core::Resource;
+require RDF::Core::Enumerator::Memory;
 use Carp;
 
 sub new {
